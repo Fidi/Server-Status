@@ -36,6 +36,7 @@
 #include "cpu.h"
 #include "hdd.h"
 #include "unix_functions.h"
+#include "ini.h"
 
 using namespace std;
 
@@ -91,10 +92,19 @@ int main(int argc, char *argv[]) {
   int elapsedTime = 0;
 		
   time_t startTime,endTime;
+
+  // use absolute path for config file (!)
+  const string config_path = "/usr/local/etc/serverstatus.conf";
+  INI ini(config_path);
+
+  int hdd_interval = ini.readInt("HDD", "interval");
+  int mount_interval = ini.readInt("Mount", "interval");
+  int cpu_interval = ini.readInt("CPU", "interval");
+  int load_interval = ini.readInt("Load", "interval");
 		
   // create hdd / cpu objects
-  HDD hdd_class(10);
-  CPU cpu_class(10);
+  HDD hdd_class(config_path);
+  CPU cpu_class(config_path);
 
 		
   // the main loop: here comes all the stuff that has to be repeated 
@@ -104,13 +114,21 @@ int main(int argc, char *argv[]) {
     // get the duration of function calling...
     startTime = clock();
 
-    if (i % 60 == 0) {
-      // scripts that are executed once every hour:
-      hdd_class.readHDDInfos();
+    if (i % hdd_interval == 0) {
+      hdd_class.readHDDTemperature();
     }
 
-    // scripts that are executed every minute
-    cpu_class.readCPUInfos();
+    if (i % mount_interval == 0) {
+      hdd_class.readHDDUsage();
+    }
+
+    if (i % cpu_interval == 0) {
+      cpu_class.readCPUTemperature();
+    }
+
+    if (i % load_interval == 0) {
+      cpu_class.readLoadAverage();
+    }
 			
     // update counter
     if (i < MAX_TIME) { i++; }
