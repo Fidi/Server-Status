@@ -57,3 +57,13 @@ std::string IntToStr(int value) {
   s << value;
   return s.str();
 }
+
+
+bool FileExists(const string& filename) {
+  if (FILE *file = fopen(filename.c_str(), "r")) {
+    fclose(file);
+    return true;
+  } else {
+    return false;
+  }   
+}

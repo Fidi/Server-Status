@@ -5,7 +5,9 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+
 #include "ini.h"
+#include "unix_functions.h"
 
 using namespace std;
 
@@ -143,13 +145,6 @@ void INI::writeString(string section, string key, string value) {
 }
 
 
-
-
-void INI::foo() {
-  writeInt("section1", "blup", 21);
-  printList();
-}
-
 /*****************************************************************
 **
 **  PRIVATE STUFF
@@ -162,15 +157,6 @@ string INI::Uppercase(string val) {
   return res;
 }
 
-
-bool INI::FileExists(const string& filename) {
-  if (FILE *file = fopen(filename.c_str(), "r")) {
-    fclose(file);
-    return true;
-  } else {
-    return false;
-  }   
-}
 
 
 

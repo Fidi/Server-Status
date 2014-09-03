@@ -37,10 +37,6 @@ class INI
     void writeChar(std::string section, std::string key, char value);
     void writeString(std::string section, std::string key, std::string value);
 
-
-    void foo();
-    
-  
   private:
     node *fRootNode;			//never rewrite this (unless you know why)
     node *fPositionPointer;
@@ -49,7 +45,6 @@ class INI
 
     std::string Uppercase(std::string val);
 
-    bool FileExists(const std::string& filename);
     node* getEntry(std::string section, std::string key);
     node* setEntry(std::string section, std::string key, std::string value);
     node* getSection(std::string section);

@@ -62,29 +62,28 @@ int main(int argc, char *argv[]) {
   //setlogmask(LOG_UPTO (LOG_NOTICE));
   openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
 
+  syslog(LOG_NOTICE, "Started by User %d", getuid());
+
 
   sid = setsid();
   if (sid < 0) {
-    syslog (LOG_ERR, "ServerStatus: Could not create new sid for child process");
+    syslog (LOG_ERR, "Error: Could not create new sid for child process");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "ServerStatus: new SID for child process created.");
+  syslog(LOG_DEBUG, "New SID for child process created.");
 
 
   if ((chdir("/")) < 0) {
-    syslog (LOG_ERR, "ServerStatus: Could not change working directory");
+    syslog (LOG_ERR, "Error: Could not change working directory.");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "ServerStatus: Changed working directory to root directory.");
+  syslog(LOG_DEBUG, "Changed working directory to root directory.");
 
 
   close(STDIN_FILENO);
   close(STDOUT_FILENO);
   close(STDERR_FILENO);
 
-
-  // daemon is ready: now start the actual work
-  syslog(LOG_NOTICE, "ServerStatus: started by User %d", getuid());
 
   
   // variables
@@ -94,7 +93,17 @@ int main(int argc, char *argv[]) {
   time_t startTime,endTime;
 
   // use absolute path for config file (!)
-  const string config_path = "/usr/local/etc/serverstatus.conf";
+  string config_path;
+  if (FileExists("/usr/local/etc/serverstatus.conf")) {
+    config_path = "/usr/local/etc/serverstatus.conf";
+  } else if (FileExists("/etc/serverstatus.conf")) {
+    config_path = "/etc/serverstatus.conf";
+  } else {
+    syslog (LOG_ERR, "Error: Could not find a configuration file.");
+    exit(EXIT_FAILURE);
+  }
+
+
   INI ini(config_path);
 
   int hdd_interval = ini.readInt("HDD", "interval");
@@ -134,7 +143,7 @@ int main(int argc, char *argv[]) {
     if (i < MAX_TIME) { i++; }
     else { i = 0; }
 			
-    syslog (LOG_DEBUG, "ServerStatus: loop no. %d finished", i);
+    syslog (LOG_DEBUG, "loop no. %d finished", i);
 			
     // now calculate how long we have to sleep
     endTime = clock();
