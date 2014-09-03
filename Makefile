@@ -1,11 +1,14 @@
 CC     = g++
 FLAGS  = -std=c++11 -Wall
-INPUT  = cpu.o hdd.o unix_functions.o serverstatus.o
+INPUT  = cpu.o hdd.o unix_functions.o ini.o serverstatus.o
 OUTPUT = serverstatus
 
 #------------------------------------------------------------------------------
 
 install: $(OUTPUT)
+	sudo mv $(OUTPUT) /usr/local/etc/rc.d/$(OUTPUT)
+	sudo mkdir -p /usr/local/etc/serverstatus/
+	sudo cp serverstatus.conf /usr/local/etc/serverstatus.conf
 
 $(OUTPUT): $(INPUT)
 	$(CC) $(INPUT) -o $(OUTPUT) $(FLAGS)

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
+#include <sstream>
 #include "unix_functions.h"
 
 using namespace std;
@@ -48,4 +49,11 @@ void strReplace(std::string& str, const std::string& oldStr, const std::string& 
      str.replace(pos, oldStr.length(), newStr);
      pos += newStr.length();
   }
+}
+
+
+std::string IntToStr(int value) {
+  stringstream s;
+  s << value;
+  return s.str();
 }

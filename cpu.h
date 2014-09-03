@@ -3,15 +3,25 @@
 
 #include <time.h>
 #include <string>
+#include <vector>
 
 
 // contains cpu temperature with their timestamp
 struct data_cpu_t {
   std::string timestamp;
-  double core_temp[2];
-  double load[3];
+  std::vector<double> cpu_temp;
 };
 typedef struct data_cpu_t data_cpu;
+
+
+
+// contains load avarage with its timestamp
+struct data_load_t {
+  std::string timestamp;
+  std::vector<double> load_average;
+};
+typedef struct data_load_t data_load;
+
 
 
 
@@ -20,29 +30,33 @@ class CPU
 {
   public:
     CPU();
-    CPU(int elements=30);
-    //CPU(const CPU& a);  // do not expect this to be ever needed; but can easily be added
+    CPU(std::string configFile = "/usr/local/etc/serverstatus.conf");
     ~CPU();
  
-    void readCPUInfos();
-		
-    data_cpu* getArrayElement(int position);
- 
+    void readCPUTemperature();
+    void readLoadAverage();
+
   private:
-    int cpu_elements;
+    int cpu_elements; 
+    int load_elements;
+
     data_cpu *cpu_list;
-    int array_position;
+    int cpu_position;
 
+    data_load *load_list;
+    int load_position;
 
-    std::string core_desc[2] = {"CPU 1", "CPU 2"};
+    int core_count;
+    std::vector<std::string> cpu_cmd;
+
+    std::vector<std::string> load_cmd;
     std::string load_desc[3] = {"Load 1m", "Load 5m", "Load 15m"};
 
+    std::string file_path;
 
-    // read the systems cpu temperature
-    void readCurrentTemperature();
-    void readLoadAvarage();
 
     void initArray();
+    void loadConfigFile(std::string configFile);
 	
     void writeTemperatureJSONFile();
     void writeLoadJSONFile();

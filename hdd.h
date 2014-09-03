@@ -8,14 +8,18 @@
 // contains cpu temperature with their timestamp
 struct data_hdd_t {
   std::string timestamp;
-  double hdd_temp[6];	
+  //double hdd_temp[6];	
+  std::vector<double> hdd_temp;
 };
 typedef struct data_hdd_t data_hdd;
 
-struct hdd_usage_t {
- std::string usage[6];
+
+
+struct data_usage_t {
+ //std::string usage[6];
+  std::vector<std::string> mount;
 };
-typedef struct hdd_usage_t hdd_usage;
+typedef struct data_usage_t data_usage;
 
 
 
@@ -25,30 +29,41 @@ class HDD
 {
   public:
     HDD();
-    HDD(int elements=30);
-    //HDD(const HDD& a);  // do not expect this to be ever needed; but can easily be added
+    HDD(std::string configFile = "/usr/local/etc/serverstatus.conf");
     ~HDD();
  
-    void readHDDInfos();
-		
-    data_hdd* getArrayElement(int position);
-    hdd_usage* getHDDUsagePointer();
+	void readHDDTemperature();
+	void readHDDUsage();
+
+    void foo();
  
   private:
     int hdd_elements;
+    int mount_elements;
+
     data_hdd *hdd_list;
-    hdd_usage hdd_use;
-    int array_position;
+    int hdd_position;
 
-    std::string hdd_desc[6] = {"HDD 1", "HDD 2", "HDD 3", "HDD 4", "HDD 5", "SSD"};
-    std::string usage_desc[6] = {"Free", "Audio", "Documents", "Movies", "Programs", "Games"};
+    int hdd_count;
+    std::vector<std::string> hdd_desc;
+    std::vector<std::string> hdd_cmd;
 
+    data_usage hdd_usage;
 
-    // read the systems hdd temperature
-    void readCurrentTemperature();
-    void readCurrentUsage();
+    int mount_count;
+    std::vector<std::string> mount_desc;
+    std::vector<std::string> mount_cmd;
+
+    std::string file_path;
+
+    //int array_position;
+
+    //std::string hdd_desc[6] = {"HDD 1", "HDD 2", "HDD 3", "HDD 4", "HDD 5", "SSD"};
+    //std::string usage_desc[6] = {"Free", "Audio", "Documents", "Movies", "Programs", "Games"};
+
 
     void initArray();
+    void loadConfigFile(std::string configFile);
 	
     void writeTemperatureJSONFile();
     void writeUsageJSONFile(); // TODO HTML export?!

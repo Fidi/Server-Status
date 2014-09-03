@@ -4,8 +4,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <vector>
+
 #include "hdd.h"
 #include "unix_functions.h"
+#include "ini.h"
 
 
 
@@ -22,16 +25,12 @@ int getArraySize(T(&) [size]) {
 *****************************************************************/
 
 // default constructor
-HDD::HDD()
-: hdd_elements(30) 
-{
-  initArray();
+HDD::HDD() {
 }
 
 // constructor with defined element count
-HDD::HDD(int elements)
-: hdd_elements(elements)
-{	
+HDD::HDD(std::string configFile) {
+  loadConfigFile(configFile);
   initArray();
 }
 
@@ -41,6 +40,7 @@ HDD::~HDD() {
 }
 
 
+/*
 void HDD::readHDDInfos() {
   // get current time (UNIX format)
   hdd_list[array_position].timestamp = getReadableTime();
@@ -58,50 +58,57 @@ void HDD::readHDDInfos() {
   writeTemperatureJSONFile();
   writeUsageJSONFile();
 }
+*/
 
-
-
-// getter function for array element; returns pointer
-data_hdd* HDD::getArrayElement(int position) {
-  if((position >= 0) && (position < hdd_elements)) {
-    return &hdd_list[position];
-  } else {
-    return NULL;
-  }
-}
-
-hdd_usage* HDD::getHDDUsagePointer() {
-  return &hdd_use;
-}
-
-
-/*****************************************************************
-**
-**  PRIVATE STUFF
-**
-*****************************************************************/
 
 
 // function to save the systems temperature into array
-void HDD::readCurrentTemperature() {
+void HDD::readHDDTemperature() {
+		  
+  // save timestamp:
+  hdd_list[hdd_position].timestamp = getReadableTime();
 
-  //Step 1: read the current hdd temperature
-  for (int i = 0; i < (sizeof(hdd_list[array_position].hdd_temp)/sizeof(*hdd_list[array_position].hdd_temp)); i++) {
-	std::string hddID;
-	std::stringstream out;
-	out << i;
-	hddID = out.str();
-	
-    std::string cmd = "sudo smartctl -a /dev/ada" + hddID + " | awk '/Temperature_Celsius/{print $0}' | awk '{print $10}'";
-    const char* output = &getCmdOutput(&cmd[0])[0];
-    double temperature = atof(output);
-    hdd_list[array_position].hdd_temp[i] = temperature;
+  // get values:
+  hdd_list[hdd_position].hdd_temp.clear();
+  for (int i=0; i<hdd_count; i++) {
+    std::string disc_cmd = hdd_cmd[i];
+    const char* disc_output = &getCmdOutput(&disc_cmd[0])[0];
+    hdd_list[hdd_position].hdd_temp.push_back(atof(disc_output));
   }
+
+  // move pointer:
+  if (hdd_position < hdd_elements-1) {
+    hdd_position++;
+  } else {
+    hdd_position = 0;
+  }
+
+  // write json file:
+  writeTemperatureJSONFile();
+
 }
 
 
+
+
 // function to save the load avarage into array
-void HDD::readCurrentUsage() {
+void HDD::readHDDUsage() {
+	
+  // get values:
+  hdd_usage.mount.clear();
+  for (int i=0; i<mount_count; i++) {
+    std::string disc_cmd = mount_cmd[i];
+    const char* disc_output = &getCmdOutput(&disc_cmd[0])[0];
+    std::string disc_usage = disc_output;
+    strReplace(disc_usage, "\n", "");
+    hdd_usage.mount.push_back(disc_usage);
+  }
+
+  // write json file:
+  writeUsageJSONFile();
+
+
+	/*
   // free space
   std::string cmd = "df | grep ^Data/Filme | awk '{print $4}'";
   const char* output = &getCmdOutput(&cmd[0])[0];
@@ -143,35 +150,82 @@ void HDD::readCurrentUsage() {
   fixedOutput = output;
   strReplace(fixedOutput, "\n", "");
   hdd_use.usage[5] = fixedOutput;
-
+*/
 }
 
 
 
+void HDD::foo() {
+	//readHDDTemperature();
+	readHDDUsage();
+}
+
+
+/*****************************************************************
+**
+**  PRIVATE STUFF
+**
+*****************************************************************/
 
 
 // creates an array and fills it with empty values
 void HDD::initArray() {
   // alloc memory for array
   hdd_list = new data_hdd[hdd_elements];
+  //hdd_usage = new data_usage;
   
   // init array with empty values
   for (int i = 0; i < hdd_elements; i++) {
     hdd_list[i].timestamp = "0";
-    for (int j = 0; j < (sizeof(hdd_list[i].hdd_temp)/sizeof(*hdd_list[i].hdd_temp)); j++) {
-	  hdd_list[i].hdd_temp[j] = 0;
+
+    for (int j = 0; j < hdd_count; j++) {
+	  hdd_list[i].hdd_temp.push_back(0);
     }
   }
-  array_position = 0;
+
+  for (int j = 0; j < mount_count; j++) {
+    hdd_usage.mount.push_back("0");
+  }
+
+  hdd_position = 0;
 }
+
+
+
+void HDD::loadConfigFile(std::string configFile) {
+
+  INI ini(configFile);
+
+  // read array sizes:
+  hdd_elements = ini.readInt("HDD", "elements");
+  mount_elements = ini.readInt("Mount", "elements");
+
+  // read hdd infos
+  hdd_count = ini.readInt("HDD", "count");
+  for (int i=1; i<=hdd_count; i++) {
+    hdd_desc.push_back(ini.readString("HDD", "desc" + IntToStr(i)));
+    hdd_cmd.push_back(ini.readString("HDD", "cmd" + IntToStr(i)));
+  }
+
+  mount_count = ini.readInt("Mount", "count");
+  for (int i=1; i<=mount_count; i++) {
+    mount_desc.push_back(ini.readString("Mount", "desc" + IntToStr(i)));
+    mount_cmd.push_back(ini.readString("Mount", "cmd" + IntToStr(i)));
+  }
+
+  file_path = ini.readString("General", "filepath");
+}
+
+
 
 
 
 
 // generic function to export a variable number of hdd elements (array size) in json file
 void HDD::writeTemperatureJSONFile() {
+
   std::ofstream tempFile;
-  tempFile.open("HDD_Temperature.json");
+  tempFile.open(file_path + "HDD_Temperature.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
   tempFile << "  \"title\" : \"HDD Temperature\", \n";
@@ -179,24 +233,22 @@ void HDD::writeTemperatureJSONFile() {
   tempFile << "  \"refreshEveryNSeconds\" : 60, \n";
   tempFile << "  \"datasequences\" : [ \n";
 
-  // for every load value print a line:
-  int elements = getArraySize(hdd_list[0].hdd_temp); //(sizeof(hdd_list[0].hdd_temp)/sizeof(*hdd_list[0].hdd_temp));
-  for (int j=0; j < elements; j++) {
+  for (int j=0; j < hdd_count; j++) {
 	
     tempFile << "      {";
     tempFile << "      \"title\": \"" + hdd_desc[j] + "\", \n";
     tempFile << "            \"datapoints\" : [ \n";
 
 	
-    for (int i=array_position; i < hdd_elements; i++) {
+    for (int i=hdd_position; i < hdd_elements; i++) {
       std::string val;
       std::stringstream out;
       out << hdd_list[i].hdd_temp[j];
       tempFile << "               { \"title\" : \"" + hdd_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
     }
 
-    if (array_position != 0) {
-      for (int i=0; i < array_position; i++) {
+    if (hdd_position != 0) {
+      for (int i=0; i < hdd_position; i++) {
         std::string val;
         std::stringstream out;
         out << hdd_list[i].hdd_temp[j];
@@ -205,7 +257,7 @@ void HDD::writeTemperatureJSONFile() {
     }
 
     tempFile << "             ] \n";
-    if (j == elements-1) {
+    if (j == hdd_count-1) {
 	  tempFile << "      } \n";
     } else {
       tempFile << "      }, \n";
@@ -217,14 +269,16 @@ void HDD::writeTemperatureJSONFile() {
   tempFile << "  } \n";
   tempFile << "} \n";
   tempFile.close();
+
 }
 
 
 
 // generic function to export usage with variable number of mounts
 void HDD::writeUsageJSONFile() {
+
   std::ofstream tempFile;
-  tempFile.open("HDD_Usage.json");
+  tempFile.open(file_path + "HDD_Usage.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
   tempFile << "  \"title\" : \"HDD Usage\", \n";
@@ -236,11 +290,9 @@ void HDD::writeUsageJSONFile() {
   tempFile << "        \"datapoints\" : [ \n";
 
   // for every load value print a line:
-  int elements = getArraySize(hdd_use.usage); //(sizeof(hdd_use.usage)/sizeof(*hdd_use.usage));
-
-  for (int j=0; j < elements; j++) {
+  for (int j=0; j < mount_count; j++) {
 	
-    tempFile << "       { \"title\" : \"" + usage_desc[j] + "\", \"value\" : " + hdd_use.usage[j] + "}, \n";
+    tempFile << "           { \"title\" : \"" + mount_desc[j] + "\", \"value\" : " + hdd_usage.mount[j] + "}, \n";
    
   }
 
@@ -251,5 +303,6 @@ void HDD::writeUsageJSONFile() {
   tempFile << "  } \n";
   tempFile << "} \n";
   tempFile.close();
+
 }
 
