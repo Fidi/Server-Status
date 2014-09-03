@@ -1,0 +1,17 @@
+.\" Manpage for ServerStatus.
+.\" Contact kevinfiedler93@googlemail.com to correct errors or typos.
+.TH man 8 "03 September 2014" "1.0" "ServerStatus man page"
+.SH NAME
+ServerStatus \- A daemon that creates JSON files with system statistics.
+.SH SYNOPSIS
+service serverstatus start
+.SH DESCRIPTION
+ServerStatus is a daemon that runs on your UNIX based system and reads system status informations. It provides these informations in JSON files that can be printed with other (remote) programs to monitor system status statistics.
+.SH OPTIONS
+serverstatus does not take any options. A config file is required however. serverstatus will look at /etc/ or /usr/local/etc/ for a file called serverstatus.conf
+.SH SEE ALSO
+sysctl(8), smartmontools(8), uptime(1), df(1)
+.SH BUGS
+No bug tests on other operational systems than FreeBSD.
+.SH AUTHOR
+Kevin Fiedler (kevinfiedler93@googlemail.com)
