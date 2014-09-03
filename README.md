@@ -18,6 +18,8 @@ To build the daemon a C++ compiler is required that supports C++11 (GCC 4.7 and 
 
 How to use...
 ---
-Simply add ServerStatus to your autostart script, define a path where the output files can be stored and enjoy.
+To compile the code run "make install clean".
 
-Based on your operation system you might need to adjust some of the commands to make them work.
+Then just add serverstatus to your autostart programs (e.g. on FreeBSD you can add "serverstatus_enable=YES" to the rc.conf file.
+
+Based on your operation system you might need to adjust some of the commands in serverstatus.conf to make them work.

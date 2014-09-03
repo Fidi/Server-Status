@@ -13,13 +13,6 @@
 using namespace std;
 
 
-
-template <typename T, int size>
-int getArraySize(T(&) [size]) {
-    return size;
-}
-
-
 /*****************************************************************
 **
 **  PUBLIC STUFF
@@ -29,7 +22,7 @@ int getArraySize(T(&) [size]) {
 CPU::CPU(){
 }
 
-CPU::CPU(std::string configFile){	
+CPU::CPU(string configFile){	
   loadConfigFile(configFile);
   initArray();
 }
@@ -51,7 +44,7 @@ void CPU::readCPUTemperature() {
   // get values:
   cpu_list[cpu_position].cpu_temp.clear();
   for (int i=0; i<core_count; i++) {
-    std::string core_cmd = cpu_cmd[i];
+    string core_cmd = cpu_cmd[i];
     const char* core_output = &getCmdOutput(&core_cmd[0])[0];
     cpu_list[cpu_position].cpu_temp.push_back(atof(core_output));
   }
@@ -78,7 +71,7 @@ void CPU::readLoadAverage() {
   // get values:
   load_list[load_position].load_average.clear();
   for (int i=0; i<3; i++) {
-    std::string la_cmd = load_cmd[i];
+    string la_cmd = load_cmd[i];
     const char* load_output = &getCmdOutput(&la_cmd[0])[0];
     load_list[load_position].load_average.push_back(atof(load_output));
   }
@@ -132,7 +125,7 @@ void CPU::initArray() {
 
 
 
-void CPU::loadConfigFile(std::string configFile) {
+void CPU::loadConfigFile(string configFile) {
   INI ini(configFile);
 
   // read array sizes:
@@ -159,7 +152,7 @@ void CPU::loadConfigFile(std::string configFile) {
 
 // generic function to export a variable number of cpu elements (array size) in json file
 void CPU::writeTemperatureJSONFile() {
-  std::ofstream tempFile;
+  ofstream tempFile;
   tempFile.open(file_path + "CPU_Temperature.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
@@ -177,8 +170,8 @@ void CPU::writeTemperatureJSONFile() {
     tempFile << "            \"datapoints\" : [ \n";
 
     for (int i=cpu_position; i < cpu_elements; i++) {
-      std::string val;
-      std::stringstream out;
+      string val;
+      stringstream out;
       out << cpu_list[i].cpu_temp[j];
       tempFile << "               { \"title\" : \"" + cpu_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
     }
@@ -186,8 +179,8 @@ void CPU::writeTemperatureJSONFile() {
     if (cpu_position != 0) {
       // print the remaining elements
       for (int i=0; i < cpu_position; i++) {
-        std::string val;
-        std::stringstream out;
+        string val;
+        stringstream out;
         out << cpu_list[i].cpu_temp[j];
         tempFile << "               { \"title\" : \"" + cpu_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
       }
@@ -215,7 +208,7 @@ void CPU::writeTemperatureJSONFile() {
 
 // generic function to export all load values (3) as json file
 void CPU::writeLoadJSONFile() {
-  std::ofstream tempFile;
+  ofstream tempFile;
   tempFile.open(file_path + "Load.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
@@ -237,16 +230,16 @@ void CPU::writeLoadJSONFile() {
     tempFile << "            \"datapoints\" : [ \n";
 
     for (int i=load_position; i < load_elements; i++) {
-      std::string val;
-      std::stringstream out;
+      string val;
+      stringstream out;
       out << load_list[i].load_average[j];
       tempFile << "               { \"title\" : \"" + load_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
     }
 
     if (load_position != 0) {
 	  for (int i=0; i < load_position; i++) {
-        std::string val;
-	    std::stringstream out;
+        string val;
+	    stringstream out;
 	    out << load_list[i].load_average[j];
 	    tempFile << "               { \"title\" : \"" + load_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
 	  }

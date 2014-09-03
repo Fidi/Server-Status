@@ -10,13 +10,7 @@
 #include "unix_functions.h"
 #include "ini.h"
 
-
-
-template <typename T, int size>
-int getArraySize(T(&) [size]) {
-    return size;
-}
-
+using namespace std;
 
 /*****************************************************************
 **
@@ -29,7 +23,7 @@ HDD::HDD() {
 }
 
 // constructor with defined element count
-HDD::HDD(std::string configFile) {
+HDD::HDD(string configFile) {
   loadConfigFile(configFile);
   initArray();
 }
@@ -38,27 +32,6 @@ HDD::HDD(std::string configFile) {
 HDD::~HDD() {
   delete [] hdd_list;
 }
-
-
-/*
-void HDD::readHDDInfos() {
-  // get current time (UNIX format)
-  hdd_list[array_position].timestamp = getReadableTime();
-
-  readCurrentTemperature();
-  readCurrentUsage();
-	
-  // move to next array element
-  if (array_position < hdd_elements-1) {
-    array_position++;
-  } else {
-    array_position = 0;
-  }
-
-  writeTemperatureJSONFile();
-  writeUsageJSONFile();
-}
-*/
 
 
 
@@ -71,7 +44,7 @@ void HDD::readHDDTemperature() {
   // get values:
   hdd_list[hdd_position].hdd_temp.clear();
   for (int i=0; i<hdd_count; i++) {
-    std::string disc_cmd = hdd_cmd[i];
+    string disc_cmd = hdd_cmd[i];
     const char* disc_output = &getCmdOutput(&disc_cmd[0])[0];
     hdd_list[hdd_position].hdd_temp.push_back(atof(disc_output));
   }
@@ -97,67 +70,15 @@ void HDD::readHDDUsage() {
   // get values:
   hdd_usage.mount.clear();
   for (int i=0; i<mount_count; i++) {
-    std::string disc_cmd = mount_cmd[i];
+    string disc_cmd = mount_cmd[i];
     const char* disc_output = &getCmdOutput(&disc_cmd[0])[0];
-    std::string disc_usage = disc_output;
+    string disc_usage = disc_output;
     strReplace(disc_usage, "\n", "");
     hdd_usage.mount.push_back(disc_usage);
   }
 
   // write json file:
-  writeUsageJSONFile();
-
-
-	/*
-  // free space
-  std::string cmd = "df | grep ^Data/Filme | awk '{print $4}'";
-  const char* output = &getCmdOutput(&cmd[0])[0];
-  std::string fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[0] = fixedOutput;
-
-  // audio space
-  cmd = "df | grep ^Data/Audio | awk '{print $3}'";
-  output = &getCmdOutput(&cmd[0])[0];
-  fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[1] = fixedOutput;
-
-  // documents space
-  cmd = "df | grep ^Data/Dokumente | awk '{print $3}'";
-  output = &getCmdOutput(&cmd[0])[0];
-  fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[2] = fixedOutput;
-
-  // movies space
-  cmd = "df | grep ^Data/Filme | awk '{print $3}'";
-  output = &getCmdOutput(&cmd[0])[0];
-  fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[3] = fixedOutput;
-
-  // program space
-  cmd = "df | grep ^Data/Programme | awk '{print $3}'";
-  output = &getCmdOutput(&cmd[0])[0];
-  fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[4] = fixedOutput;
-
-  // game space
-  cmd = "df | grep ^Data/Spiele | awk '{print $3}'";
-  output = &getCmdOutput(&cmd[0])[0];
-  fixedOutput = output;
-  strReplace(fixedOutput, "\n", "");
-  hdd_use.usage[5] = fixedOutput;
-*/
-}
-
-
-
-void HDD::foo() {
-	//readHDDTemperature();
-	readHDDUsage();
+  writeUsageJSONFile(); 
 }
 
 
@@ -192,7 +113,7 @@ void HDD::initArray() {
 
 
 
-void HDD::loadConfigFile(std::string configFile) {
+void HDD::loadConfigFile(string configFile) {
 
   INI ini(configFile);
 
@@ -224,7 +145,7 @@ void HDD::loadConfigFile(std::string configFile) {
 // generic function to export a variable number of hdd elements (array size) in json file
 void HDD::writeTemperatureJSONFile() {
 
-  std::ofstream tempFile;
+  ofstream tempFile;
   tempFile.open(file_path + "HDD_Temperature.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
@@ -241,16 +162,16 @@ void HDD::writeTemperatureJSONFile() {
 
 	
     for (int i=hdd_position; i < hdd_elements; i++) {
-      std::string val;
-      std::stringstream out;
+      string val;
+      stringstream out;
       out << hdd_list[i].hdd_temp[j];
       tempFile << "               { \"title\" : \"" + hdd_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
     }
 
     if (hdd_position != 0) {
       for (int i=0; i < hdd_position; i++) {
-        std::string val;
-        std::stringstream out;
+        string val;
+        stringstream out;
         out << hdd_list[i].hdd_temp[j];
         tempFile << "               { \"title\" : \"" + hdd_list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
       }
@@ -277,7 +198,7 @@ void HDD::writeTemperatureJSONFile() {
 // generic function to export usage with variable number of mounts
 void HDD::writeUsageJSONFile() {
 
-  std::ofstream tempFile;
+  ofstream tempFile;
   tempFile.open(file_path + "HDD_Usage.json");
   tempFile << "{ \n";
   tempFile << "  \"graph\" : { \n";
@@ -289,7 +210,6 @@ void HDD::writeUsageJSONFile() {
   tempFile << "        \"title\" : \"HDD Usage\", \n";
   tempFile << "        \"datapoints\" : [ \n";
 
-  // for every load value print a line:
   for (int j=0; j < mount_count; j++) {
 	
     tempFile << "           { \"title\" : \"" + mount_desc[j] + "\", \"value\" : " + hdd_usage.mount[j] + "}, \n";
