@@ -1,15 +1,16 @@
 CC     = g++
 FLAGS  = -std=c++11 -Wall
 INPUT  = cpu.o hdd.o unix_functions.o ini.o serverstatus.o
+PATH   = /usr/local/etc/rc.d/
 OUTPUT = serverstatus
 
 #------------------------------------------------------------------------------
 
 install: $(OUTPUT)
-	sudo mv $(OUTPUT) /usr/local/etc/rc.d/$(OUTPUT)
-	sudo mkdir -p /usr/local/etc/serverstatus/
-	sudo cp serverstatus.conf /usr/local/etc/serverstatus.conf
-	sudo cp serverstatus.man /usr/local/man/man8/serverstatus.8
+	mv $(OUTPUT) $(PATH)$(OUTPUT)
+	mkdir -p /usr/local/etc/serverstatus/
+	cp serverstatus.conf /usr/local/etc/serverstatus.conf
+	cp serverstatus.man /usr/share/man/man8/serverstatus.8
 
 $(OUTPUT): $(INPUT)
 	$(CC) $(INPUT) -o $(OUTPUT) $(FLAGS)
@@ -33,4 +34,4 @@ clean:
 	rm -f *.o
 	
 deinstall:
-	rm -f $(OUTPUT)
+	rm -f $(PATH)$(OUTPUT)
