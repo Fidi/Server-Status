@@ -153,7 +153,7 @@ void INI::writeString(string section, string key, string value) {
 
 string INI::Uppercase(string val) {
   string res = val;
-  for_each(res.begin(), res.end(), [](char& in){ in = ::toupper(in); });
+  transform(res.begin(), res.end(),res.begin(), ::toupper);
   return res;
 }
 
@@ -164,7 +164,7 @@ node* INI::getEntry(string section, string key) {
   fPositionPointer = fRootNode;
   node *res = 0;
   string k;
-  int keylen = key.length();
+  unsigned int keylen = key.length();
   
   bool sectionExists = false;
   bool nextSection = false;
