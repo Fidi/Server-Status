@@ -30,7 +30,7 @@ Debian and Ubuntu do not seem to have a c++ compiler installed. So install your 
 
 Debian and Ubuntu need an other export path, too. So you need to change one more line of the Makefile to:
 
-`PATH = /usr/local/etc/rc2.d/`
+`PATH = /etc/init.d/`
 
 
 Configuration
@@ -60,4 +60,4 @@ It is recommended to run ServerStatus as root.
 You can start the program by running `service serverstatus start` or `/usr/local/etc/rc.d/serverstatus start`. 
 
 ###Debian/Ubuntu###
-Run `/etc/rc2.d/serverstartus start`.
+Run `service serverstatus start` or `/etc/init.d/serverstartus start`.

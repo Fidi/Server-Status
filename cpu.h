@@ -29,7 +29,6 @@ typedef struct data_load_t data_load;
 class CPU
 {
   public:
-    CPU();
     CPU(std::string configFile = "/usr/local/etc/serverstatus.conf");
     ~CPU();
 

@@ -26,7 +26,6 @@ typedef struct data_usage_t data_usage;
 class HDD
 {
   public:
-    HDD();
     HDD(std::string configFile = "/usr/local/etc/serverstatus.conf");
     ~HDD();
  

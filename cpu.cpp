@@ -19,15 +19,11 @@ using namespace std;
 **
 *****************************************************************/
 
-CPU::CPU(){
-}
-
 CPU::CPU(string configFile){	
   loadConfigFile(configFile);
   initArray();
 }
 
-// destructor
 CPU::~CPU() {
   delete [] cpu_list;
   delete [] load_list;

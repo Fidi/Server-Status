@@ -18,17 +18,11 @@ using namespace std;
 **
 *****************************************************************/
 
-// default constructor
-HDD::HDD() {
-}
-
-// constructor with defined element count
 HDD::HDD(string configFile) {
   loadConfigFile(configFile);
   initArray();
 }
 
-// destructor
 HDD::~HDD() {
   delete [] hdd_list;
 }
