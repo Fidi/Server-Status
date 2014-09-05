@@ -52,8 +52,10 @@ class HDD
 
     std::string file_path;
 
-    void initArray();
     void loadConfigFile(std::string configFile);
+    void initArray();
+
+    void setHDDTemperatureValue(std::string time, std::vector<double> value);
 	
     void writeTemperatureJSONFile();
     void writeUsageJSONFile(); // TODO HTML export?!

@@ -37,24 +37,16 @@ HDD::~HDD() {
 
 // function to save the systems temperature into array
 void HDD::readHDDTemperature() {
-		  
-  // save timestamp:
-  hdd_list[hdd_position].timestamp = getReadableTime();
-
-  // get values:
-  hdd_list[hdd_position].hdd_temp.clear();
+	
+  // read cpu temp values:
+  std::vector<double> newVal;
   for (int i=0; i<hdd_count; i++) {
     string disc_cmd = hdd_cmd[i];
     const char* disc_output = &getCmdOutput(&disc_cmd[0])[0];
-    hdd_list[hdd_position].hdd_temp.push_back(atof(disc_output));
+    newVal.push_back(atof(disc_output));
   }
 
-  // move pointer:
-  if (hdd_position < hdd_elements-1) {
-    hdd_position++;
-  } else {
-    hdd_position = 0;
-  }
+  setHDDTemperatureValue(getReadableTime(), newVal);
 
   // write json file:
   writeTemperatureJSONFile();
@@ -88,31 +80,7 @@ void HDD::readHDDUsage() {
 **
 *****************************************************************/
 
-
-// creates an array and fills it with empty values
-void HDD::initArray() {
-  // alloc memory for array
-  hdd_list = new data_hdd[hdd_elements];
-  //hdd_usage = new data_usage;
-  
-  // init array with empty values
-  for (int i = 0; i < hdd_elements; i++) {
-    hdd_list[i].timestamp = "0";
-
-    for (int j = 0; j < hdd_count; j++) {
-	  hdd_list[i].hdd_temp.push_back(0);
-    }
-  }
-
-  for (int j = 0; j < mount_count; j++) {
-    hdd_usage.mount.push_back("0");
-  }
-
-  hdd_position = 0;
-}
-
-
-
+// loads the ini-based config and sets the variables
 void HDD::loadConfigFile(string configFile) {
 
   INI ini(configFile);
@@ -139,6 +107,52 @@ void HDD::loadConfigFile(string configFile) {
 
 
 
+// creates an array and fills it with empty values
+void HDD::initArray() {
+  // alloc memory for array
+  hdd_list = new data_hdd[hdd_elements];
+  //hdd_usage = new data_usage;
+  
+  // init array with empty values
+  for (int i = 0; i < hdd_elements; i++) {
+    hdd_list[i].timestamp = "0";
+
+    for (int j = 0; j < hdd_count; j++) {
+	  hdd_list[i].hdd_temp.push_back(0);
+    }
+  }
+
+  for (int j = 0; j < mount_count; j++) {
+    hdd_usage.mount.push_back("0");
+  }
+
+  hdd_position = 0;
+}
+
+
+
+// Setter for HDD Temperature
+void HDD::setHDDTemperatureValue(std::string time, std::vector<double> value) {
+  if (value.size() == hdd_count) {
+	
+    // save timestamp:
+    hdd_list[hdd_position].timestamp = time;
+
+    // get values:
+    hdd_list[hdd_position].hdd_temp.clear();
+    for (int i=0; i<hdd_count; i++) {
+      hdd_list[hdd_position].hdd_temp.push_back(value[i]);
+    }
+
+    // move pointer:
+    if (hdd_position < hdd_elements-1) {
+      hdd_position++;
+    } else {
+      hdd_position = 0;
+    }
+
+  }
+}
 
 
 

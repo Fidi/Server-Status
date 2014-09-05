@@ -32,7 +32,7 @@ class CPU
     CPU();
     CPU(std::string configFile = "/usr/local/etc/serverstatus.conf");
     ~CPU();
- 
+
     void readCPUTemperature();
     void readLoadAverage();
 
@@ -55,8 +55,11 @@ class CPU
     std::string file_path;
 
 
-    void initArray();
     void loadConfigFile(std::string configFile);
+    void initArray();
+
+    void setCPUTemperatureValue(std::string time, std::vector<double> value);
+    void setLoadValue(std::string time, std::vector<double> value);
 	
     void writeTemperatureJSONFile();
     void writeLoadJSONFile();

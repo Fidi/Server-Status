@@ -35,26 +35,21 @@ CPU::~CPU() {
 
 
 
+
+
 // function to save the systems temperature into array
 void CPU::readCPUTemperature() {
   
-  // save timestamp:
-  cpu_list[cpu_position].timestamp = getReadableTime();
-
-  // get values:
-  cpu_list[cpu_position].cpu_temp.clear();
+  // read cpu temp values:
+  std::vector<double> newVal;
   for (int i=0; i<core_count; i++) {
     string core_cmd = cpu_cmd[i];
     const char* core_output = &getCmdOutput(&core_cmd[0])[0];
-    cpu_list[cpu_position].cpu_temp.push_back(atof(core_output));
+    newVal.push_back(atof(core_output));
   }
-
-  // move pointer:
-  if (cpu_position < cpu_elements-1) {
-    cpu_position++;
-  } else {
-    cpu_position = 0;
-  }
+  
+  // save values into array
+  setCPUTemperatureValue(getReadableTime(), newVal);
 
   // write json file:
   writeTemperatureJSONFile();
@@ -65,23 +60,16 @@ void CPU::readCPUTemperature() {
 // function to save the load avarage into array
 void CPU::readLoadAverage() {
 	
-  // save timestamp:
-  load_list[load_position].timestamp = getReadableTime();
-
-  // get values:
-  load_list[load_position].load_average.clear();
+  // get system load:
+  std::vector<double> newVal;
   for (int i=0; i<3; i++) {
     string la_cmd = load_cmd[i];
     const char* load_output = &getCmdOutput(&la_cmd[0])[0];
-    load_list[load_position].load_average.push_back(atof(load_output));
+    newVal.push_back(atof(load_output));
   }
 
-  // move pointer:
-  if (load_position < load_elements-1) {
-    load_position++;
-  } else {
-    load_position = 0;
-  }
+  // save value into array
+  setLoadValue(getReadableTime(), newVal);
 
   // write json file:
   writeLoadJSONFile();
@@ -93,6 +81,28 @@ void CPU::readLoadAverage() {
 **  PRIVATE STUFF
 **
 *****************************************************************/
+
+// loads the ini-based config and sets the variables
+void CPU::loadConfigFile(string configFile) {
+  INI ini(configFile);
+
+  // read array sizes:
+  cpu_elements = ini.readInt("CPU", "elements");
+  load_elements = ini.readInt("Load", "elements");
+
+  // read cpu infos
+  core_count = ini.readInt("CPU", "count");
+  for (int i=1; i<=core_count; i++) {
+    cpu_cmd.push_back(ini.readString("CPU", "cmd" + IntToStr(i)));
+  }
+
+  for (int i=1; i<=3; i++) {
+    load_cmd.push_back(ini.readString("Load", "cmd" + IntToStr(i)));
+  }
+
+  file_path = ini.readString("General", "filepath");
+}
+
 
 
 // creates an array and fills it with empty values
@@ -125,24 +135,52 @@ void CPU::initArray() {
 
 
 
-void CPU::loadConfigFile(string configFile) {
-  INI ini(configFile);
 
-  // read array sizes:
-  cpu_elements = ini.readInt("CPU", "elements");
-  load_elements = ini.readInt("Load", "elements");
 
-  // read cpu infos
-  core_count = ini.readInt("CPU", "count");
-  for (int i=1; i<=core_count; i++) {
-    cpu_cmd.push_back(ini.readString("CPU", "cmd" + IntToStr(i)));
+// Setter for CPU Temperature
+void CPU::setCPUTemperatureValue(std::string time, std::vector<double> value) {
+  if (value.size() == core_count) {
+    
+    // save timestamp:
+    cpu_list[cpu_position].timestamp = time;
+
+    // get values:
+    cpu_list[cpu_position].cpu_temp.clear();
+    for (int i=0; i<core_count; i++) {
+      cpu_list[cpu_position].cpu_temp.push_back(value[i]);
+    }
+
+    // move pointer:
+    if (cpu_position < cpu_elements-1) {
+      cpu_position++;
+    } else {
+      cpu_position = 0;
+    }
+
   }
+}
 
-  for (int i=1; i<=3; i++) {
-    load_cmd.push_back(ini.readString("Load", "cmd" + IntToStr(i)));
+// Setter for the Load value
+void CPU::setLoadValue(std::string time, std::vector<double> value) {
+  if (value.size() == 3) {
+  
+    // save timestamp:
+    load_list[load_position].timestamp = time;
+
+    // get values:
+    load_list[load_position].load_average.clear();
+    for (int i=0; i<3; i++) {
+      load_list[load_position].load_average.push_back(value[i]);
+    }
+
+    // move pointer:
+    if (load_position < load_elements-1) {
+      load_position++;
+    } else {
+      load_position = 0;
+    }
+
   }
-
-  file_path = ini.readString("General", "filepath");
 }
 
 
