@@ -35,6 +35,7 @@
 
 #include "cpu.h"
 #include "hdd.h"
+#include "memory.h"
 #include "unix_functions.h"
 #include "ini.h"
 
@@ -110,10 +111,12 @@ int main(int argc, char *argv[]) {
   int mount_interval = ini.readInt("Mount", "interval");
   int cpu_interval = ini.readInt("CPU", "interval");
   int load_interval = ini.readInt("Load", "interval");
+  int memory_interval = ini.readInt("Memory", "interval");
 		
   // create hdd / cpu objects
   HDD hdd_class(config_path);
   CPU cpu_class(config_path);
+  Memory memory_class(config_path);
 
 		
   // the main loop: here comes all the stuff that has to be repeated 
@@ -137,6 +140,10 @@ int main(int argc, char *argv[]) {
 
     if (i % load_interval == 0) {
       cpu_class.readLoadAverage();
+    }
+
+    if (i % memory_interval == 0) {
+      memory_class.readMemoryStatus();
     }
 			
     // update counter
