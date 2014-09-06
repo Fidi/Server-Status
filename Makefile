@@ -1,6 +1,6 @@
 CC     = /usr/bin/clang++
 FLAGS  = -std=c++11 -Wall
-INPUT  = cpu.o hdd.o memory.o unix_functions.o ini.o serverstatus.o
+INPUT  = system_stats.o unix_functions.o ini.o serverstatus.o
 PATH   = /usr/local/etc/rc.d/
 OUTPUT = serverstatus
 
@@ -18,17 +18,11 @@ $(OUTPUT): $(INPUT)
 unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
 			
+system_stats.o: system_stats.cpp
+	$(CC) -c system_stats.cpp $(FLAGS)
+	
 ini.o: ini.cpp
 	$(CC) -c ini.cpp $(FLAGS)
-	
-cpu.o: cpu.cpp
-	$(CC) -c cpu.cpp $(FLAGS)
-	
-hdd.o: hdd.cpp
-	$(CC) -c hdd.cpp $(FLAGS)
-
-memory.o: memory.cpp
-	$(CC) -c memory.cpp $(FLAGS)
 	
 serverstatus.o: serverstatus.cpp
 	$(CC) -c serverstatus.cpp $(FLAGS)

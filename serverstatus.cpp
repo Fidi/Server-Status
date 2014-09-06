@@ -33,9 +33,7 @@
 #include <time.h>
 #include <iostream>
 
-#include "cpu.h"
-#include "hdd.h"
-#include "memory.h"
+#include "system_stats.h"
 #include "unix_functions.h"
 #include "ini.h"
 
@@ -44,121 +42,189 @@ using namespace std;
 
 #define MAX_TIME 120
 
+#define PATHC 2
+const string PATH[] = {"/usr/local/etc/serverstatus.conf", "/etc/serverstatus.conf"};
+
+
+// writes the path to the config file into the submitted parameter:
+bool getConfigFilePath(string &output) {
+  for (int i = 0; i < PATHC; i++) {
+    if (FileExists(PATH[i])) {
+      output = PATH[i];
+      return true;
+    }
+  }
+  return false;
+}
+
 
 
 int main(int argc, char *argv[]) {
-  pid_t pid, sid;
   
-  pid = fork();
-
-  // could not create child process
-  if (pid < 0) { exit(EXIT_FAILURE); }
-
-  // child process created: terminate parent
-  if (pid > 0) { exit(EXIT_SUCCESS); }
-
-  umask(0);
-
-  // using syslog local1 for this daemon
-  //setlogmask(LOG_UPTO (LOG_NOTICE));
-  openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
-
-  syslog(LOG_NOTICE, "Started by User %d", getuid());
-
-
-  sid = setsid();
-  if (sid < 0) {
-    syslog (LOG_ERR, "Error: Could not create new sid for child process");
+  // Load configuration
+  string _configpath;
+  if (!getConfigFilePath(_configpath)) {
+    printf("Could not find a configuration file. \nMake sure a file called \"serverstatus.conf\" is located at \"/usr/local/etc/\" or \"/etc/\". \n");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "New SID for child process created.");
-
-
-  if ((chdir("/")) < 0) {
-    syslog (LOG_ERR, "Error: Could not change working directory.");
-    exit(EXIT_FAILURE);
-  }
-  syslog(LOG_DEBUG, "Changed working directory to root directory.");
-
-
-  close(STDIN_FILENO);
-  close(STDOUT_FILENO);
-  close(STDERR_FILENO);
-
 
   
-  // variables
-  int i = 0;
-  int elapsedTime = 0;
-		
-  time_t startTime,endTime;
+  /***************************************************************
+  *** ServerStatus differentiates between two modes:
+  ***  1) The main mode is starting without any parameters:
+  ***     It then creates a daemon that keeps running in the
+  ***     background until the OS shuts down or the process
+  ***     is killed
+  ***  2) The secound mode is starting with paramteres:
+  ***     Right now that only enables configuration mode.
+  ***     Open "serverstatus --config" or "serverstatus -c"
+  ***************************************************************/ 
+  
+  
+ 
+  if ((argc > 0) && (strcmp(argv[1],"start") != 0)) {
+    // MODE 2:
 
-  // use absolute path for config file (!)
-  string config_path;
-  if (FileExists("/usr/local/etc/serverstatus.conf")) {
-    config_path = "/usr/local/etc/serverstatus.conf";
-  } else if (FileExists("/etc/serverstatus.conf")) {
-    config_path = "/etc/serverstatus.conf";
+    // Change into config mode:
+    if ((strcmp(argv[1], "--config") == 0) || (strcmp(argv[1], "-c") == 0)) {
+      // TODO!
+      exit(EXIT_SUCCESS);
+    }
+
+    // kill any running instances of serverstatus
+    if (strcmp(argv[1], "stop") == 0) {
+      string cmd = "pgrep serverstatus";
+      if (getCmdOutput(&cmd[0]) != "") {
+        cmd = "killall serverstatus";
+        getCmdOutput(&cmd[0]);
+        printf("Process serverstatus stopped. \n");
+        exit(EXIT_SUCCESS);
+      }
+
+    }
+
   } else {
-    syslog (LOG_ERR, "Error: Could not find a configuration file.");
-    exit(EXIT_FAILURE);
-  }
+    // MODE 1:
+    // Start a daemon process and read the system statistics in the background
 
 
-  INI ini(config_path);
+    // check of an instance of serverstatus is already running in the background
+    string cmd = "pgrep serverstatus";
+	if (getCmdOutput(&cmd[0]) != "") {
+      printf("Daemon is running already. \n");
+      exit(EXIT_FAILURE);
+    }
 
-  int hdd_interval = ini.readInt("HDD", "interval");
-  int mount_interval = ini.readInt("Mount", "interval");
-  int cpu_interval = ini.readInt("CPU", "interval");
-  int load_interval = ini.readInt("Load", "interval");
-  int memory_interval = ini.readInt("Memory", "interval");
+
+    pid_t pid, sid;
+  
+    pid = fork();
+
+    // could not create child process
+    if (pid < 0) { exit(EXIT_FAILURE); }
+
+    // child process created: terminate parent
+    if (pid > 0) { exit(EXIT_SUCCESS); }
+
+    umask(0);
+
+    // using syslog local1 for this daemon
+    //setlogmask(LOG_UPTO (LOG_NOTICE));
+    openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+
+    syslog(LOG_NOTICE, "Started by User %d", getuid());
+
+
+    sid = setsid();
+    if (sid < 0) {
+      syslog (LOG_ERR, "Error: Could not create new sid for child process");
+      exit(EXIT_FAILURE);
+    }
+    syslog(LOG_DEBUG, "New SID for child process created.");
+
+
+    if ((chdir("/")) < 0) {
+      syslog (LOG_ERR, "Error: Could not change working directory.");
+      exit(EXIT_FAILURE);
+    }
+    syslog(LOG_DEBUG, "Changed working directory to root directory.");
+
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+
+
+  
+    // variables
+    int i = 0;
+    int elapsedTime = 0;
 		
-  // create hdd / cpu objects
-  HDD hdd_class(config_path);
-  CPU cpu_class(config_path);
-  Memory memory_class(config_path);
+    time_t startTime,endTime;
+
+
+    INI ini(_configpath);
+
+    int hdd_interval = ini.readInt("HDD", "interval");
+    int mount_interval = ini.readInt("Mount", "interval");
+    int cpu_interval = ini.readInt("CPU", "interval");
+    int load_interval = ini.readInt("Load", "interval");
+    int memory_interval = ini.readInt("Memory", "interval");
+  
+    syslog(LOG_DEBUG, "Configuration file loaded.");
 
 		
-  // the main loop: here comes all the stuff that has to be repeated 
-  // the loop fires once every minute
-  while(1) {
+    // create system stat classes
+    SystemStats cpu(CPU, _configpath);
+    SystemStats load(Load, _configpath);
+    SystemStats hdd(HDD, _configpath);
+    SystemStats mount(Mount, _configpath);
+    SystemStats mem(Memory, _configpath);
+
+    syslog(LOG_DEBUG, "Class objects created.");
+
+		
+    // the main loop: here comes all the stuff that has to be repeated 
+    // the loop fires once every minute
+    while(1) {
 	
-    // get the duration of function calling...
-    startTime = clock();
+      // get the duration of function calling...
+      startTime = clock();
 
-    if (i % hdd_interval == 0) {
-      hdd_class.readHDDTemperature();
-    }
+      if (i % hdd_interval == 0) {
+        hdd.readStatus();
+      }
 
-    if (i % mount_interval == 0) {
-      hdd_class.readHDDUsage();
-    }
+      if (i % mount_interval == 0) {
+        mount.readStatus();
+      }
 
-    if (i % cpu_interval == 0) {
-      cpu_class.readCPUTemperature();
-    }
+      if (i % cpu_interval == 0) {
+        cpu.readStatus();
+      }
 
-    if (i % load_interval == 0) {
-      cpu_class.readLoadAverage();
-    }
-
-    if (i % memory_interval == 0) {
-      memory_class.readMemoryStatus();
-    }
+      if (i % load_interval == 0) {
+        load.readStatus();
+      }
+ 
+      if (i % memory_interval == 0) {
+        mem.readStatus();
+      }
 			
-    // update counter
-    if (i < MAX_TIME) { i++; }
-    else { i = 0; }
+      // update counter
+      if (i < MAX_TIME) { i++; }
+      else { i = 0; }
 			
-    syslog (LOG_DEBUG, "loop no. %d finished", i);
+      syslog (LOG_DEBUG, "loop no. %d finished", i);
 			
-    // now calculate how long we have to sleep
-    endTime = clock();
-    elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
+      // now calculate how long we have to sleep
+      endTime = clock();
+      elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
 			
-    sleep(60 - elapsedTime);  // let each loop last one minute
-  }
+      sleep(60 - elapsedTime);  // let each loop last one minute
+    }
    
-  closelog();
-  exit(EXIT_SUCCESS);	
+    closelog();
+    exit(EXIT_SUCCESS);	
+  }
 }

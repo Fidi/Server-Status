@@ -28,6 +28,30 @@ std::string getCmdOutput(char* cmd) {
 }
 
 
+
+bool getDefaultEditor(std::string &output) {
+  char *_defaultEditor;
+	
+  if ((_defaultEditor = getenv("EDITOR")) == nullptr) {
+    std::string _editors[] = {"nano", "pico", "vim", "vi"};
+    for (std::string &i : _editors) {
+      std::string cmd = "which " + i;
+      if (strcmp((_defaultEditor = &getCmdOutput(&cmd[0])[0]), "") != 0) {
+        output.assign(_defaultEditor);
+        strReplace(output, "\n", "");
+        return true;
+      }
+    }
+  } else {
+    output.assign(_defaultEditor);
+    return true;
+  }
+
+  return false;
+}
+
+
+
 std::string getReadableTime() {
   time_t currentTime;
   time(&currentTime);
