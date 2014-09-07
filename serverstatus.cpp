@@ -32,6 +32,7 @@
 #include <string.h>
 #include <time.h>
 #include <iostream>
+#include <limits>
 
 #include "system_stats.h"
 #include "unix_functions.h"
@@ -56,6 +57,140 @@ bool getConfigFilePath(string &output) {
   }
   return false;
 }
+
+
+void flush_cin() {
+  cin.clear();
+  cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+}
+
+
+void configureOption(const string &configFile, const string section, const string description, const int defaultInterval) {
+  // load ini-file:
+  INI ini(configFile);
+
+  system("clear");
+  printf("============================================================= \n");
+  printf("== Start the configuration for %s: \n", description.c_str());
+  printf("============================================================= \n \n");
+
+  flush_cin();
+  char _char_input = 'Y';
+  string _input;
+
+  do {
+    printf("Do you want to activate to read %s? [Y/n] ", description.c_str());
+    scanf("%c", &_char_input);
+  } while ((_char_input != 'Y') && (_char_input != 'y') && (_char_input != 'N') && (_char_input != 'n') && (_char_input != 10 ));
+                  
+  if ((_char_input == 'Y') || (_char_input == 'y') || (_char_input == 10)) { 
+
+    int _numeric_value, _element_count;
+    bool _valid = false;
+
+    // read interval
+    while( !_valid ) {
+      printf("Enter the interval in which the %s shell be read (in minutes): [default %d] ", description.c_str(), defaultInterval);
+      cin >> _input;
+      
+      if ((_numeric_value = atoi(_input.c_str())) == 0) {
+        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
+      } else {
+	    _valid = true;
+        ini.writeInt(section, "interval", _numeric_value);
+      }
+      flush_cin();
+    }
+
+
+    _valid = false;
+    // read array size         
+    while( !_valid ) {
+      printf("Enter how many old values should be stored: [default 30] ");
+      cin >> _input;
+      
+      if ((_numeric_value = atoi(_input.c_str())) == 0) {
+        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
+      } else {
+	    _valid = true;
+        ini.writeInt(section, "elements", _numeric_value);
+      }
+      flush_cin();
+    }
+
+
+    _valid = false;
+    // read element count         
+    while( !_valid ) {
+      printf("Enter how many different values exist (e.g. 2 cores, 5 discs, ...): ");
+      cin >> _input;
+      
+      if ((_element_count = atoi(_input.c_str())) == 0) {
+        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
+      } else {
+	    _valid = true;
+        ini.writeInt(section, "count", _element_count);
+      }
+      flush_cin();
+    }
+
+    // read description and command for each element
+    for (int i = 0; i < _element_count; i++) {
+      
+        printf("Enter a description for element no. %d: ", i+1);
+        getline(cin, _input);
+        //flush_cin();
+        ini.writeString(section, "desc" + IntToStr(i+1), _input);
+
+        printf("Enter a shell command that returns a integer or float value for element no. %d: ", i+1);
+        getline(cin, _input);
+        //flush_cin();
+        ini.writeString(section, "cmd" + IntToStr(i+1), _input);
+    }
+
+    printf("\n%s configuration successful. \nPress any key to exit. \n", description.c_str());
+    scanf("%c", &_char_input);
+
+  } else {
+    // setting the count to zero deactivates the function
+    ini.writeInt("CPU", "count", 0);
+  }
+  
+  // save changed ini file
+  ini.saveToFile(configFile);
+}
+
+
+
+
+void runConfiguration(const string &configFile) {
+  bool _exit = false;
+  while (!_exit) {
+    system("clear");
+    printf("\n Please enter a number to start the configuration: \n");
+    printf("  1) CPU temperature \n");
+    printf("  2) Load Average \n");
+    printf("  3) HDD temperature \n");
+    printf("  4) Disc space \n");
+    printf("  5) Memory \n");
+    printf("  6) Exit \n \n");
+    char _input;
+    scanf("%c", &_input);
+
+    if (_input != '6') {
+      // configure selected option
+      switch (_input) {
+        case '1': configureOption(configFile, "CPU", "CPU temperature", 5); break;
+        case '2': configureOption(configFile, "Load", "Load Average", 1); break;
+        case '3': configureOption(configFile, "HDD", "HDD temperature", 60); break;
+        case '4': configureOption(configFile, "Mount", "disc space", 60); break;
+        case '5': configureOption(configFile, "Memory", "memory", 1); break;
+        default:  break;
+      }
+    } else { _exit = true; }
+  }
+}
+
 
 
 
@@ -87,7 +222,7 @@ int main(int argc, char *argv[]) {
 
     // Change into config mode:
     if ((strcmp(argv[1], "--config") == 0) || (strcmp(argv[1], "-c") == 0)) {
-      // TODO!
+      runConfiguration(_configpath);
       exit(EXIT_SUCCESS);
     }
 
