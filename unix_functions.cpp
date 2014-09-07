@@ -1,5 +1,5 @@
 #include <iostream>
-#include <string>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
@@ -25,29 +25,6 @@ std::string getCmdOutput(char* cmd) {
 	return "ERROR";
   }
   return result;
-}
-
-
-
-bool getDefaultEditor(std::string &output) {
-  char *_defaultEditor;
-	
-  if ((_defaultEditor = getenv("EDITOR")) == nullptr) {
-    std::string _editors[] = {"nano", "pico", "vim", "vi"};
-    for (std::string &i : _editors) {
-      std::string cmd = "which " + i;
-      if (strcmp((_defaultEditor = &getCmdOutput(&cmd[0])[0]), "") != 0) {
-        output.assign(_defaultEditor);
-        strReplace(output, "\n", "");
-        return true;
-      }
-    }
-  } else {
-    output.assign(_defaultEditor);
-    return true;
-  }
-
-  return false;
 }
 
 

@@ -4,8 +4,6 @@
 // execute shell command and return shell output
 std::string getCmdOutput(char* cmd);
 
-bool getDefaultEditor(std::string &output);
-
 // convert unix time to format HH:MM
 std::string getReadableTime();
 
