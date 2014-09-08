@@ -1,63 +1,175 @@
 ServerStatus
 ===
 
-
 Description
 ---
-ServerStatus is a daemon that can be used on UNIX operation systems to create JSON, CSV and html files that contain system status informations. The general idea is to provide these files via http, https, ftp or any other way and let external (remote) devices parse these informations.
+ServerStatus is a daemon that can be used on UNIX operation systems to create JSON files (and in the future maybe CSV and html files) that contain system status informations. The general idea is to provide these files via http, https, ftp or any other way and let external (remote) devices parse these informations.
 
-An example is the iPad app StatusBoard that can print all these files beautifully. I use this app to monitor my server status no matter where I am without the need to use ssh and remember some complicated shell commands.
+An example is the iPad app [StatusBoard](http://panic.com/statusboard/) that can print all these files beautifully.
 
 
 Dependencies
 ---
-Based on the different UNIX distributions there are different dependencies. On FreeBSD for example you need a third-party program to get the disc temperature like "smartmontools".
+To build this daemon a C++ compiler is required that supports C++11 (e.g. GCC 4.7 and above, clang 2.9 and above, ...).
 
-To build the daemon a C++ compiler is required that supports C++11 (GCC 4.7 and higher, clang 2.9 and higher, ...).
+The daemon might require other programs at runtime. For example to get the hdd temperature on FreeBSD you need a third-party program like `smartmontools`. 
+On other operation systems there might be other programs or commands necessary that need to be installed.
 
-You can either compile the code all yourself or use the command `make`. Using the Makefile has the advantage that it moves the program to the `rc.d`-folder too so that it can be run as a service 1
+####Installation####
+If either GCC or clang is installed on your system all you need to do is to run:
 
-###FreeBSD###
-Simply run `make install clean`. The clang compiler is already included in FreeBSD 10. Otherwise install `clang` or change the line
+     gmake install clean     # FreeBSD
+      - or - 
+     make install clean      # Debian / Ubuntu     
 
-`CC = /usr/bin/clang++`
+If you want to use a different C++ compiler you have to manually edit the `Makefile` and set `CC = your_g++_compiler`.
 
-to the c++ compiler that is installed on your system. All the other configuration are written for FreeBSD.
+By default ServerStatus will be installed into a directory that allows to run it as a service:
 
-
-###Debian/Ubuntu###
-Debian and Ubuntu do not seem to have a c++ compiler installed. So install your favorite compiler of choice and write the compiler (with its absolute path) in the Makefile.
-
-Debian and Ubuntu need an other export path, too. So you need to change one more line of the Makefile to:
-
-`PATH = /etc/init.d/`
+     /usr/local/etc/rc.d/      # FreeBSD
+      - or -
+     /etc/init.d/              # Ubuntu / Debian
 
 
 Configuration
 ---
-The program is looking for a config file that is either `/etc/serverstatus.conf` or `/usr/local/etc/serverstatus.conf`.
+ServerStatus is looking for a configuration file named `serverstatus.conf` and has to be located either at `/etc/`or at `/usr/local/etc/`.
 
-The configuration file uses a simple syntax that is known by ini-files.
+A sample configuration file will be copied to `/usr/local/etc/` if ServerStatus is installed with the provided Makefile.
 
-Notes:
- - If you change the filepath make sure that the new directory exists.
- - If you change the count of HDD, Mount or CPU make sure that you have exactly that many commands (starting at 1).
+You can either configure ServerStatus manually by editing the `serverstatus.conf` file with any editor or you can call 
+
+     service serverstatus --config
+      - or -
+     service serverrstatus -c
+     
+and get let through the configuration process by answering a couple of questions. This will have the advantage that you don't have to learn its syntax.
+
+*Notes (if you edit the file manually):*
+ - *If you change the filepath make sure that the new directory exists.*
+ - *If you change the count of HDD, Mount or CPU make sure that you have exactly that many commands (starting at 1).*
+
  
-The sample commands are for FreeBSD. However you will need to install S.M.A.R.T on your FreeBSD system to get the HDD temperature.
+The sample configuration file is written for FreeBSD. However at the end of this file there will be collection of commands for different Linux systems that can be used on Debian or Ubuntu.
 
-Run: `cd /usr/ports/sysutils/smartmontools/ && make install clean`
-
-On other systems there might be other commands necessary!
 
 How to use...
 ---
+You can start ServerStatus manually by running:
 
-You might want to consider to add ServerStatus to your autostart programs so that der system status can be monitored at any time.
+     service serverstatus start
 
-It is recommended to run ServerStatus as root.
+But you might want to consider to add ServerStatus to your autostart programs so that der system status can be monitored right after your system started.
 
-###FreeBSD###
-You can start the program by running `service serverstatus start` or `/usr/local/etc/rc.d/serverstatus start`. 
+**Note**:
+It is strongly recommended to run ServerStatus as **root** (or sudo) to make sure that all commands will work and that you have permission to write the json-files.
 
-###Debian/Ubuntu###
-Run `service serverstatus start` or `/etc/init.d/serverstartus start`.
+
+Commands
+---
+The following commands return a numeric value without any units that can be used with serverstatus without any problems.
+
+####CPU temperature####
+<table>
+	<tr>
+		<th>OS</th>
+		<th>Command</th>
+	</tr>
+	<tr>
+		<td>FreeBSD</td>
+		<td>sysctl -n dev.cpu.&lt;CORE&gt;.temperature | sed 's/C//g'
+		<br/><i>If not enabled run: kldload coretemp</i></td>
+	</tr>
+	<!--
+	<tr>
+		<td>Raspian</td>
+		<td>vcgencmd measure_temp | cut -c 6- | sed "s/'/°/"</td>
+	</tr>
+	-->
+</table>
+
+####Load####
+<table>
+	<tr>
+		<th>OS</th>
+		<th colspan="2">Command</th>
+	</tr>
+	<tr>
+		<td>All</td>
+		<td>Load 1<br/>Load 5<br/>Load 15</td>
+		<td>uptime | awk '{print $(NF)}' | sed 's/,/./'
+		<br/>uptime | awk '{print $(NF-1)}' | sed 's/,/./'
+		<br/>uptime | awk '{print $(NF-2)}' | sed 's/,/./'</td>
+	</tr>
+</table>
+
+####HDD temperature####
+<table>
+	<tr>
+		<th>OS</th>
+		<th>Command</th>
+	</tr>
+	<tr>
+		<td>FreeBSD</td>
+		<td>smartctl -a /dev/&lt;DISC&gt; | awk '/Temperature_Celsius/{print $0}' | awk '{print $10}'</td>
+	</tr>
+</table>
+
+####Disc Space####
+<table>
+	<tr>
+		<th>OS</th>
+		<th colspan="2">Command</th>
+	</tr>
+	<tr>
+		<td>All</td>
+		<td>Free<br/>Used</td>
+		<td>df | grep ^&lt;MOUNT&gt; | awk '{print $3}'
+		<br/>df | grep ^&lt;MOUNT&gt; | awk '{print $4}'</td>
+	</tr>
+</table>
+
+####Memory####
+<table>
+	<tr>
+		<th>OS</th>
+		<th colspan="2">Command</th>
+	</tr>
+	<tr>
+		<td>FreeBSD</td>
+		<td>Active<br/>Inactive<br/>Wired<br/>Buffered<br/>Free</td>
+		<td>top -d1 | grep ^Mem | awk '{print $2}' | sed 's/M//'
+		<br/>top -d1 | grep ^Mem | awk '{print $4}' | sed 's/M//'
+		<br/>top -d1 | grep ^Mem | awk '{print $6}' | sed 's/M//'
+		<br/>top -d1 | grep ^Mem | awk '{print $8}' | sed 's/M//'
+		<br/>top -d1 | grep ^Mem | awk '{print $10}' | sed 's/M//'</td>
+	</tr>
+	<tr>
+		<td>Debian</td>
+		<td>Used<br/>Buffered<br/>Cached<br/>Free</td>
+		<td>free -m | egrep ^-/+ |  awk '{print $3}'
+		<br/>free -m | egrep ^Mem |  awk '{print $6}'
+		<br/>free -m | egrep ^Mem |  awk '{print $7}'
+		<br/>free -m | egrep ^Mem |  awk '{print $4}'</td>
+	</tr>
+</table>
+
+####Memory####
+<table>
+	<tr>
+		<th>OS</th>
+		<th colspan="2">Command</th>
+	</tr>
+	<tr>
+		<td>FreeBSD</td>
+		<td>In<br/>Out</td>
+		<td>netstat -I &lt;INTERFACE&gt; -b | awk '{ if (/Link/) { print $8 } }'
+		<br>netstat -I &lt;INTERFACE&gt; -b | awk '{ if (/Link/) { print $11 } }'</td>
+	</tr>
+	<tr>
+		<td>Debian</td>
+		<td>In<br/>Out</td>
+		<td>ifconfig wlan0 | grep "RX bytes" | awk '{ print $2 }' | sed 's/bytes://'
+		<br/>ifconfig wlan0 | grep "RX bytes" | awk '{ print $6 }' | sed 's/bytes://'</td>
+	</tr>
+</table>
