@@ -6,6 +6,7 @@
 #include <vector>
 
 
+
 // generic container:
 // contains a timestamp and any number of values
 struct _data_t {
@@ -65,12 +66,13 @@ class SystemStats
 
     data getPreviousData();
 
-    std::string getSectionFromType(status type);
-
     void setValue(std::string time, std::vector<double> value);
  
     void writeJSONFile();
 };
+
+// get string that should be read from config file
+std::string getSectionFromType(status type);
 
 
 #endif

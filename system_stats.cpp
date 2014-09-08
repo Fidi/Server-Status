@@ -13,6 +13,22 @@
 using namespace std;
 
 
+// helper function to get a string from the status type
+string getSectionFromType(status type) {
+  string res;
+  switch (type) {
+    case CPU: res     = "CPU";     break;
+    case Load: res    = "Load";    break;
+    case HDD: res     = "HDD";     break;
+    case Mount: res   = "Mount";   break;
+    case Memory: res  = "Memory";  break;
+    case Network: res = "Network"; break;
+    default: throw "No status type submitted."; break;
+  }
+  
+  return res;
+}
+
 
 /*****************************************************************
 **
@@ -54,7 +70,6 @@ void SystemStats::readStatus() {
   // write json file:
   writeJSONFile();
 }
-
 
 
 
@@ -135,6 +150,7 @@ data SystemStats::getPreviousData() {
 
   return _list[_prevPosition];
 }
+
 
 
 
