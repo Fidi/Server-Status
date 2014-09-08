@@ -245,7 +245,8 @@ int main(int argc, char *argv[]) {
 
     // check of an instance of serverstatus is already running in the background
     string cmd = "pgrep serverstatus";
-	if (getCmdOutput(&cmd[0]) != "") {
+    string did = getCmdOutput(&cmd[0]);
+	if ((did != "") && (atoi(did.c_str()) != getpid())) {
       printf("Daemon is running already. \n");
       exit(EXIT_FAILURE);
     }
