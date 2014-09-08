@@ -1,7 +1,24 @@
-CC     = /usr/bin/clang++
-FLAGS  = -std=c++11 -Wall
-INPUT  = system_stats.o unix_functions.o ini.o serverstatus.o
-PATH   = /usr/local/etc/rc.d/
+# Compiler
+ifeq ("$(shell which clang++)", "/usr/bin/clang++")
+	CC = /usr/bin/clang++
+else
+	CC = $(shell which g++)
+endif
+
+#Compiler flags
+FLAGS = -std=c++11 -Wall
+
+# Input files
+INPUT = system_stats.o unix_functions.o ini.o serverstatus.o
+
+# Output path
+ifeq ("$(shell uname -s)", "FreeBSD")
+    PATH = /usr/local/etc/rc.d/
+else 
+    PATH = /etc/init.d/
+endif
+
+# Output filename
 OUTPUT = serverstatus
 
 #------------------------------------------------------------------------------
