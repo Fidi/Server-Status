@@ -84,6 +84,11 @@ bool SystemStats::loadConfigFile(string configFile) {
     } else {
       _json_type = line;
     }
+    if (ini.readInt(_section, "delta") == 1) {
+      _delta = true;
+    } else {
+      _delta = false;
+    }
 
     _interval = ini.readInt(_section, "interval");
     _filepath = ini.readString("General", "filepath");
@@ -117,15 +122,29 @@ void SystemStats::initArray() {
 
 
 
+data SystemStats::getPreviousData() {
+  // move pointer:
+  int _prevPosition;
+  if (_list_position == 0) {
+    _prevPosition =  _array_size - 1;
+  } else {
+    _prevPosition = _list_position - 1;
+  }
+
+  return _list[_prevPosition];
+}
+
+
 // get string that should be read from config file
 string SystemStats::getSectionFromType(status type) {
   string res;
   switch (type) {
-    case CPU: res    = "CPU";    break;
-    case Load: res   = "Load";   break;
-    case HDD: res    = "HDD";    break;
-    case Mount: res  = "Mount";  break;
-    case Memory: res = "Memory"; break;
+    case CPU: res     = "CPU";     break;
+    case Load: res    = "Load";    break;
+    case HDD: res     = "HDD";     break;
+    case Mount: res   = "Mount";   break;
+    case Memory: res  = "Memory";  break;
+    case Network: res = "Network"; break;
     default: throw "No status type submitted."; break;
   }
   
@@ -192,10 +211,14 @@ void SystemStats::writeJSONFile() {
     _out_file << "      \"title\": \"" << _description[j] << + "\", \n";
     _out_file << "            \"datapoints\" : [ \n";
 
+
+    double _val;
     for (int i = _list_position; i < _array_size; i++) {
       string val;
       stringstream out;
-      out << _list[i].value[j];
+      _val = _list[i].value[j];
+      if (_delta) { if (i == 0) { _val -= _list[_array_size-1].value[j]; } else { _val -= _list[i-1].value[j]; } }
+      out << _val;
       _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
     }
 
@@ -204,7 +227,9 @@ void SystemStats::writeJSONFile() {
       for (int i=0; i < _list_position; i++) {
         string val;
         stringstream out;
-        out << _list[i].value[j];
+        _val = _list[i].value[j];
+        if (_delta) { if (i == 0) { _val -= _list[_array_size-1].value[j]; } else { _val -= _list[i-1].value[j]; } }
+        out << _val;
         _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
       }
     }
