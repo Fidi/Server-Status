@@ -77,6 +77,7 @@ void configureOption(const string &configFile, const string section, const strin
   flush_cin();
   char _char_input = 'Y';
   string _input;
+  int _default_element;
 
   do {
     printf("Do you want to activate to read %s? [Y/n] ", description.c_str());
@@ -102,11 +103,41 @@ void configureOption(const string &configFile, const string section, const strin
       flush_cin();
     }
 
+    // delta?
+    do {
+      printf("Do you want use delta values (print changes instead of absolute values)? [y/N] ");
+      scanf("%c", &_char_input);
+    } while ((_char_input != 'Y') && (_char_input != 'y') && (_char_input != 'N') && (_char_input != 'n') && (_char_input != 10 ));
+
+    if ((_char_input == 'N') || (_char_input == 'n') || (_char_input == 10)) { 
+      ini.writeInt(section, "delta", 0);
+    } else {
+      ini.writeInt(section, "delta", 1);
+    }
+
+
+    _valid = false;
+    // read graph type     
+    while( !_valid ) {
+      printf("Which kind of graph type do you want to use? [line | bar | none] (e.g. used by iOS StatusBoard) ");
+      cin >> _input;
+      
+      if ((_input != "line") && (_input != "bar") && (_input != "none")) {
+        printf("You entered an invalid input. Please write \"line\", \"bar\" or \"none\".\n");
+      } else {
+	    _valid = true;
+        ini.writeString(section, "graphtype", _input);
+        if (_input == "bar") { _default_element = 1; }
+        else { _default_element = 30; }
+      }
+      flush_cin();
+    }
+
 
     _valid = false;
     // read array size         
     while( !_valid ) {
-      printf("Enter how many old values should be stored: [default 30] ");
+      printf("Enter how many old values should be stored: [default %d] ", _default_element);
       cin >> _input;
       
       if ((_numeric_value = atoi(_input.c_str())) == 0) {
@@ -148,13 +179,14 @@ void configureOption(const string &configFile, const string section, const strin
         ini.writeString(section, "cmd" + IntToStr(i+1), _input);
     }
 
-    printf("\n%s configuration successful. \nPress any key to exit. \n", description.c_str());
-    scanf("%c", &_char_input);
-
   } else {
     // setting the count to zero deactivates the function
-    ini.writeInt("CPU", "count", 0);
+    ini.writeInt(section, "count", 0);
+    flush_cin();
   }
+
+  printf("\n%s configuration successful. \nPress return to exit. \n", description.c_str());
+  scanf("%c", &_char_input);
   
   // save changed ini file
   ini.saveToFile(configFile);
@@ -173,18 +205,20 @@ void runConfiguration(const string &configFile) {
     printf("  3) HDD temperature \n");
     printf("  4) Disc space \n");
     printf("  5) Memory \n");
-    printf("  6) Exit \n \n");
+    printf("  6) Network traffic \n");
+    printf("  7) Exit \n \n");
     char _input;
     scanf("%c", &_input);
 
-    if (_input != '6') {
+    if (_input != '7') {
       // configure selected option
       switch (_input) {
         case '1': configureOption(configFile, "CPU", "CPU temperature", 5); break;
         case '2': configureOption(configFile, "Load", "Load Average", 1); break;
         case '3': configureOption(configFile, "HDD", "HDD temperature", 60); break;
         case '4': configureOption(configFile, "Mount", "disc space", 60); break;
-        case '5': configureOption(configFile, "Memory", "memory", 1); break;
+        case '5': configureOption(configFile, "Memory", "memory state", 1); break;
+        case '6': configureOption(configFile, "Network", "network traffic", 1); break;
         default:  break;
       }
     } else { _exit = true; }
@@ -306,7 +340,8 @@ int main(int argc, char *argv[]) {
     int cpu_interval = ini.readInt("CPU", "interval");
     int load_interval = ini.readInt("Load", "interval");
     int memory_interval = ini.readInt("Memory", "interval");
-  
+    int network_interval = ini.readInt("Network", "interval");
+ 
     syslog(LOG_DEBUG, "Configuration file loaded.");
 
 		
@@ -316,6 +351,7 @@ int main(int argc, char *argv[]) {
     SystemStats hdd(HDD, _configpath);
     SystemStats mount(Mount, _configpath);
     SystemStats mem(Memory, _configpath);
+    SystemStats net(Network, _configpath);
 
     syslog(LOG_DEBUG, "Class objects created.");
 
@@ -345,6 +381,10 @@ int main(int argc, char *argv[]) {
  
       if (i % memory_interval == 0) {
         mem.readStatus();
+      }
+
+      if (i % network_interval == 0) {
+        net.readStatus();
       }
 			
       // update counter

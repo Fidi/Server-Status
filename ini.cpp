@@ -76,6 +76,7 @@ bool INI::saveToFile(string filename) {
     fFile << position->data + "\n";
     position = position->next;
   }	while (position->next != 0);
+  fFile << position->data;
 
   fFile.close();
   return true;

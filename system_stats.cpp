@@ -13,6 +13,7 @@
 using namespace std;
 
 
+
 /*****************************************************************
 **
 **  PUBLIC STUFF
@@ -53,6 +54,7 @@ void SystemStats::readStatus() {
   // write json file:
   writeJSONFile();
 }
+
 
 
 
@@ -133,24 +135,6 @@ data SystemStats::getPreviousData() {
 
   return _list[_prevPosition];
 }
-
-
-// get string that should be read from config file
-string SystemStats::getSectionFromType(status type) {
-  string res;
-  switch (type) {
-    case CPU: res     = "CPU";     break;
-    case Load: res    = "Load";    break;
-    case HDD: res     = "HDD";     break;
-    case Mount: res   = "Mount";   break;
-    case Memory: res  = "Memory";  break;
-    case Network: res = "Network"; break;
-    default: throw "No status type submitted."; break;
-  }
-  
-  return res;
-}
-
 
 
 
