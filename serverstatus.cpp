@@ -1,26 +1,3 @@
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Kevin Fiedler
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in
- * the Software without restriction, including without limitation the rights to
- * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
- * the Software, and to permit persons to whom the Software is furnished to do so,
- * subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -45,6 +22,21 @@ using namespace std;
 
 #define PATHC 2
 const string PATH[] = {"/usr/local/etc/serverstatus.conf", "/etc/serverstatus.conf"};
+
+
+
+
+#define SYS_COUNT 6
+const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
+// struct that contains to the interval time to each command
+struct sys_stat_t {
+  vector<int> interval;
+  vector<SystemStats*> stat;
+};
+typedef struct sys_stat_t sys_stat;
+
+
+
 
 
 // writes the path to the config file into the submitted parameter:
@@ -334,59 +326,29 @@ int main(int argc, char *argv[]) {
 
 
     INI ini(_configpath);
-
-    int hdd_interval = ini.readInt("HDD", "interval");
-    int mount_interval = ini.readInt("Mount", "interval");
-    int cpu_interval = ini.readInt("CPU", "interval");
-    int load_interval = ini.readInt("Load", "interval");
-    int memory_interval = ini.readInt("Memory", "interval");
-    int network_interval = ini.readInt("Network", "interval");
- 
     syslog(LOG_DEBUG, "Configuration file loaded.");
 
-		
-    // create system stat classes
-    SystemStats cpu(CPU, _configpath);
-    SystemStats load(Load, _configpath);
-    SystemStats hdd(HDD, _configpath);
-    SystemStats mount(Mount, _configpath);
-    SystemStats mem(Memory, _configpath);
-    SystemStats net(Network, _configpath);
-
+    sys_stat sys;
+    for (int j = 0; j < SYS_COUNT; j++) {
+      // read interval time and create class for each at top defined status type
+      sys.interval.push_back(ini.readInt(getSectionFromType(SYS_TYPE[j]), "interval"));
+      sys.stat.push_back(new SystemStats(SYS_TYPE[j], _configpath));
+    }     
     syslog(LOG_DEBUG, "Class objects created.");
 
+
 		
-    // the main loop: here comes all the stuff that has to be repeated 
     // the loop fires once every minute
     while(1) {
 	
       // get the duration of function calling...
       startTime = clock();
 
-      if (i % hdd_interval == 0) {
-        hdd.readStatus();
+      // for each status type read status if interval time is reached
+      for (int j = 0; j < SYS_COUNT; j++) {
+        if (i % sys.interval[j] == 0) { sys.stat[j]->readStatus(); }
       }
-
-      if (i % mount_interval == 0) {
-        mount.readStatus();
-      }
-
-      if (i % cpu_interval == 0) {
-        cpu.readStatus();
-      }
-
-      if (i % load_interval == 0) {
-        load.readStatus();
-      }
- 
-      if (i % memory_interval == 0) {
-        mem.readStatus();
-      }
-
-      if (i % network_interval == 0) {
-        net.readStatus();
-      }
-			
+	
       // update counter
       if (i < MAX_TIME) { i++; }
       else { i = 0; }
