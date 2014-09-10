@@ -219,7 +219,118 @@ void runConfiguration(const string &configFile) {
 
 
 
+void startDaemon(const string &configFile) {
+  // check of an instance of serverstatus is already running in the background
+  string cmd = "pgrep serverstatus";
+  string did = getCmdOutput(&cmd[0]);
+  if ((did != "") && (atoi(did.c_str()) != getpid())) {
+    printf("Daemon is running already. \n");
+    exit(EXIT_FAILURE);
+  }
 
+
+  pid_t pid, sid;
+  pid = fork();
+
+  // could not create child process
+  if (pid < 0) { printf("Starting ServerStatus failed. \n"); exit(EXIT_FAILURE); }
+
+  // child process created: terminate parent
+  if (pid > 0) { printf("Starting ServerStatus... \n"); exit(EXIT_SUCCESS); }
+
+  umask(0);
+
+  // using syslog local1 for this daemon
+  //setlogmask(LOG_UPTO (LOG_NOTICE));
+  openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+
+  syslog(LOG_NOTICE, "Started by User %d", getuid());
+
+  sid = setsid();
+  if (sid < 0) {
+    syslog (LOG_ERR, "Error: Could not create new sid for child process");
+    exit(EXIT_FAILURE);
+  }
+  syslog(LOG_DEBUG, "New SID for child process created.");
+
+
+  if ((chdir("/")) < 0) {
+    syslog (LOG_ERR, "Error: Could not change working directory.");
+    exit(EXIT_FAILURE);
+  }
+  syslog(LOG_DEBUG, "Changed working directory to root directory.");
+
+
+  close(STDIN_FILENO);
+  close(STDOUT_FILENO);
+  close(STDERR_FILENO);
+
+
+  
+  // variables
+  int i = 0;
+  int elapsedTime = 0;
+
+  time_t startTime,endTime;
+
+
+  INI ini(configFile);
+  syslog(LOG_DEBUG, "Configuration file loaded.");
+
+  sys_stat sys;
+  for (int j = 0; j < SYS_COUNT; j++) {
+    // read interval time and create class for each at top defined status type
+    sys.interval.push_back(ini.readInt(getSectionFromType(SYS_TYPE[j]), "interval"));
+    sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
+  }     
+  syslog(LOG_DEBUG, "Class objects created.");
+
+
+		
+  // the loop fires once every minute
+  while(1) {
+	
+    // get the duration of function calling...
+    startTime = clock();
+
+    // for each status type read status if interval time is reached
+    for (int j = 0; j < SYS_COUNT; j++) {
+      if (i % sys.interval[j] == 0) { sys.stat[j]->readStatus(); }
+    }
+	
+    // update counter
+    if (i < MAX_TIME) { i++; } else { i = 0; }
+			
+    syslog (LOG_DEBUG, "loop no. %d finished", i);
+			
+    // now calculate how long we have to sleep
+    endTime = clock();
+    elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
+			
+    sleep(60 - elapsedTime);  // let each loop last one minute
+  }
+   
+  closelog();
+}
+
+
+void stopDaemon() {
+  string cmd = "pgrep serverstatus";
+  vector<string> output = split(getCmdOutput(&cmd[0]), 10);
+  for (int i = 0; i < output.size(); i++) {
+    if  (atoi(output[i].c_str()) != getpid()) {
+      string killcmd = "kill " + output[i];
+      system(killcmd.c_str());
+    }
+  }
+  printf("ServerStatus stopped. \n");
+}
+
+
+
+/**********************************************************************
+**** MAIN FUNCTION
+**********************************************************************/
 int main(int argc, char *argv[]) {
   
   // Load configuration
@@ -237,132 +348,42 @@ int main(int argc, char *argv[]) {
   ***     background until the OS shuts down or the process
   ***     is killed
   ***  2) The secound mode is starting with paramteres:
-  ***     Right now that only enables configuration mode.
-  ***     Open "serverstatus --config" or "serverstatus -c"
+  ***     Right now these are:
+  ***      "serverstatus --config" or "serverstatus -c"
+  ***      "serverstatus --help" or "serverstatus -h"
+  ***      "start", "restart" and "stop" 
   ***************************************************************/ 
   
-  
- 
-  if ((argc > 0) && (strcmp(argv[1],"start") != 0)) {
-    // MODE 2:
+  if ((argc == 0) || ((argc > 0) && (strcmp(argv[1],"start") == 0))) {
+    // MODE 1: run the daemon
+    startDaemon(_configpath);
 
-    // Change into config mode:
+  } else if (argc > 0) {
+    // MODE 2: parse the options:
+  
     if ((strcmp(argv[1], "--config") == 0) || (strcmp(argv[1], "-c") == 0)) {
+      // Configuration mode:
       runConfiguration(_configpath);
       exit(EXIT_SUCCESS);
     }
 
-    // kill any running instances of serverstatus
-    if (strcmp(argv[1], "stop") == 0) {
-      string cmd = "pgrep serverstatus";
-      if (getCmdOutput(&cmd[0]) != "") {
-        cmd = "killall serverstatus";
-        getCmdOutput(&cmd[0]);
-        printf("Process serverstatus stopped. \n");
-        exit(EXIT_SUCCESS);
-      }
-
+    else if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
+      // Show help:
+      system("man serverstatus");
+      exit(EXIT_SUCCESS);
     }
 
-  } else {
-    // MODE 1:
-    // Start a daemon process and read the system statistics in the background
-
-
-    // check of an instance of serverstatus is already running in the background
-    string cmd = "pgrep serverstatus";
-    string did = getCmdOutput(&cmd[0]);
-	if ((did != "") && (atoi(did.c_str()) != getpid())) {
-      printf("Daemon is running already. \n");
-      exit(EXIT_FAILURE);
+    else if (strcmp(argv[1], "stop") == 0) {
+      // stop other running instances:
+      stopDaemon();
+      exit(EXIT_SUCCESS);
     }
 
 
-    pid_t pid, sid;
-  
-    pid = fork();
-
-    // could not create child process
-    if (pid < 0) { exit(EXIT_FAILURE); }
-
-    // child process created: terminate parent
-    if (pid > 0) { exit(EXIT_SUCCESS); }
-
-    umask(0);
-
-    // using syslog local1 for this daemon
-    //setlogmask(LOG_UPTO (LOG_NOTICE));
-    openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
-
-    syslog(LOG_NOTICE, "Started by User %d", getuid());
-
-
-    sid = setsid();
-    if (sid < 0) {
-      syslog (LOG_ERR, "Error: Could not create new sid for child process");
-      exit(EXIT_FAILURE);
+    else if (strcmp(argv[1], "restart") == 0) {
+      // stop and start serverstatus again:
+      stopDaemon();
+      startDaemon(_configpath);
     }
-    syslog(LOG_DEBUG, "New SID for child process created.");
-
-
-    if ((chdir("/")) < 0) {
-      syslog (LOG_ERR, "Error: Could not change working directory.");
-      exit(EXIT_FAILURE);
-    }
-    syslog(LOG_DEBUG, "Changed working directory to root directory.");
-
-
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-
-
-  
-    // variables
-    int i = 0;
-    int elapsedTime = 0;
-		
-    time_t startTime,endTime;
-
-
-    INI ini(_configpath);
-    syslog(LOG_DEBUG, "Configuration file loaded.");
-
-    sys_stat sys;
-    for (int j = 0; j < SYS_COUNT; j++) {
-      // read interval time and create class for each at top defined status type
-      sys.interval.push_back(ini.readInt(getSectionFromType(SYS_TYPE[j]), "interval"));
-      sys.stat.push_back(new SystemStats(SYS_TYPE[j], _configpath));
-    }     
-    syslog(LOG_DEBUG, "Class objects created.");
-
-
-		
-    // the loop fires once every minute
-    while(1) {
-	
-      // get the duration of function calling...
-      startTime = clock();
-
-      // for each status type read status if interval time is reached
-      for (int j = 0; j < SYS_COUNT; j++) {
-        if (i % sys.interval[j] == 0) { sys.stat[j]->readStatus(); }
-      }
-	
-      // update counter
-      if (i < MAX_TIME) { i++; }
-      else { i = 0; }
-			
-      syslog (LOG_DEBUG, "loop no. %d finished", i);
-			
-      // now calculate how long we have to sleep
-      endTime = clock();
-      elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
-			
-      sleep(60 - elapsedTime);  // let each loop last one minute
-    }
-   
-    closelog();
-    exit(EXIT_SUCCESS);	
   }
 }

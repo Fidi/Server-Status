@@ -1,6 +1,8 @@
 #ifndef _unix_helper_hpp_
 #define _unix_helper_hpp_
 
+#include <vector>
+
 // execute shell command and return shell output
 std::string getCmdOutput(char* cmd);
 
@@ -15,5 +17,9 @@ std::string IntToStr(int value);
 
 // checks if a file exists
 bool FileExists(const std::string& filename);
+
+
+std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
+std::vector<std::string> split(const std::string &s, char delim);
 
 #endif

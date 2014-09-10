@@ -139,21 +139,6 @@ void SystemStats::initArray() {
 
 
 
-data SystemStats::getPreviousData() {
-  // move pointer:
-  int _prevPosition;
-  if (_list_position == 0) {
-    _prevPosition =  _array_size - 1;
-  } else {
-    _prevPosition = _list_position - 1;
-  }
-
-  return _list[_prevPosition];
-}
-
-
-
-
 
 // Array setter:
 void SystemStats::setValue(std::string time, std::vector<double> value) {

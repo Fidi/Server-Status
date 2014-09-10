@@ -1,7 +1,4 @@
 #include <iostream>
-#include <stdio.h>
-#include <string>
-#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -42,9 +39,9 @@ INI::~INI() {
 **  SAVE/LOAD
 *****************************************************************/
 bool INI::loadFromFile(string filename) {
-  if (FileExists(fFileName)) {
+  if (FileExists(filename)) {
     ifstream fFile;
-    fFile.open(fFileName);
+    fFile.open(filename);
     string temp;
 
     fFile >> temp;
@@ -165,7 +162,7 @@ node* INI::getEntry(string section, string key) {
   fPositionPointer = fRootNode;
   node *res = 0;
   string k;
-  unsigned int keylen = key.length();
+  unsigned long keylen = key.length();
   
   bool sectionExists = false;
   bool nextSection = false;
@@ -271,7 +268,7 @@ string INI::getValue(string section, string key) {
   node *k = getEntry(section, key);
   if (k != 0) {
     string res = k->data;
-    int keylen = key.length();
+    unsigned long keylen = key.length();
 
     return res.substr(keylen+1, res.length()-(keylen+1));
   } else {

@@ -7,7 +7,6 @@
 
 
 
-// generic container:
 // contains a timestamp and any number of values
 struct _data_t {
   std::string timestamp;
@@ -16,6 +15,7 @@ struct _data_t {
 typedef struct _data_t data;
 
 
+// differnt types of status information that serverstatus can read
 enum _status_t {
   CPU,            // cpu temperature
   Load,           // load average (1, 5 and 15)
@@ -27,9 +27,11 @@ enum _status_t {
 typedef enum _status_t status;
 
 
+// different graph types (for iOS StatusBoard)
 enum _json_t {
   line,
-  bar
+  bar,
+  none
 };
 typedef enum _json_t json;
 
@@ -64,12 +66,11 @@ class SystemStats
     bool loadConfigFile(std::string configFile);
     void initArray();
 
-    data getPreviousData();
-
     void setValue(std::string time, std::vector<double> value);
  
     void writeJSONFile();
 };
+
 
 // get string that should be read from config file
 std::string getSectionFromType(status type);
