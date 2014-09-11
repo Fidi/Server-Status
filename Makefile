@@ -39,7 +39,7 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(PATH) $(FLAGS)
+	$(CC) $(INPUT) -o $(OUTPUT) $(FLAGS)
 	
 system_stats.o: system_stats.cpp
 	$(CC) -c system_stats.cpp $(FLAGS)

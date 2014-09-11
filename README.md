@@ -138,11 +138,11 @@ The following commands return a numeric value without any units that can be used
 	<tr>
 		<td>FreeBSD</td>
 		<td>Active<br/>Inactive<br/>Wired<br/>Buffered<br/>Free</td>
-		<td>top -d1 | grep ^Mem | awk '{print $2}' | sed 's/M//'
-		<br/>top -d1 | grep ^Mem | awk '{print $4}' | sed 's/M//'
-		<br/>top -d1 | grep ^Mem | awk '{print $6}' | sed 's/M//'
-		<br/>top -d1 | grep ^Mem | awk '{print $8}' | sed 's/M//'
-		<br/>top -d1 | grep ^Mem | awk '{print $10}' | sed 's/M//'</td>
+		<td>top -d1 | grep ^Mem | awk '{print $2}' | sed 's/M/000000/' | sed 's/K/000/'
+		<br/>top -d1 | grep ^Mem | awk '{print $4}' | sed 's/M/000000/' | sed 's/K/000/'
+		<br/>top -d1 | grep ^Mem | awk '{print $6}' | sed 's/M/000000/' | sed 's/K/000/'
+		<br/>top -d1 | grep ^Mem | awk '{print $8}' | sed 's/M/000000/' | sed 's/K/000/'
+		<br/>top -d1 | grep ^Mem | awk '{print $10}' | sed 's/M/000000/' | sed 's/K/000/'</td>
 	</tr>
 	<tr>
 		<td>Debian</td>
@@ -154,7 +154,7 @@ The following commands return a numeric value without any units that can be used
 	</tr>
 </table>
 
-####Memory####
+####Network####
 <table>
 	<tr>
 		<th>OS</th>
