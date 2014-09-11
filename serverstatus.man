@@ -8,7 +8,18 @@ service serverstatus start
 .SH DESCRIPTION
 ServerStatus is a daemon that runs on your UNIX based system and reads system status informations. It provides these informations in JSON files that can be printed with other (remote) programs to monitor system status statistics.
 .SH OPTIONS
-serverstatus does not take any options. A config file is required however. serverstatus will look at /etc/ or /usr/local/etc/ for a file called serverstatus.conf
+ServerStatus takes the basic options that are required by a service:
+
+start		Start the daemon. This is equivalent to no command line option.
+
+stop			Stops any running instance of ServerStatus.
+
+restart		Stops any running instance of ServerStatus and starts a new daemon process. This resets the JSON files.
+
+--help, -h	Show a help page with a description and available commands.
+
+--config, -c	Executes a script that allows to configure the daemons settings such as element count or commands to get system statistics. The configuration is stored in a file located at /usr/local/etc/ (FreeBSD) or /etc/ (Linux) and must be named "serverstatus.conf".
+
 .SH SEE ALSO
 sysctl(8), smartmontools(8), uptime(1), df(1)
 .SH BUGS
