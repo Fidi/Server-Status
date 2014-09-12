@@ -68,6 +68,7 @@ class SystemStats
 
     void setValue(std::string time, std::vector<double> value);
  
+    void Inc(int &value);
     void writeJSONFile();
 };
 

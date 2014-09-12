@@ -18,16 +18,33 @@
 using namespace std;
 
 
-#define MAX_TIME 120
+//===================================================================================
+// CONFIGURATION SECTION
+//===================================================================================
 
+// After one day the counter resets (this is the maximum interval too)
+#define MAX_TIME 1440
+
+
+// Per default ServerStatus will look for a configuration file at these positions:
 #define PATHC 2
 const string PATH[] = {"/usr/local/etc/serverstatus.conf", "/etc/serverstatus.conf"};
 
 
-
-
+// Defines which systat classes will be created (a configuration file with 
+// working commands is still required!)
 #define SYS_COUNT 6
 const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
+
+
+
+//===================================================================================
+// END OF CONFIGURATION SECTION
+//===================================================================================
+
+
+
+
 // struct that contains to the interval time to each command
 struct sys_stat_t {
   vector<int> interval;
@@ -57,6 +74,8 @@ void flush_cin() {
 }
 
 
+
+// configuration wrapper script for all different systat classes
 void configureOption(const string &configFile, const string section, const string description, const int defaultInterval) {
   // load ini-file:
   INI ini(configFile);
@@ -187,6 +206,7 @@ void configureOption(const string &configFile, const string section, const strin
 
 
 
+// if started with "--config" or "-c" you get into configuration mode
 void runConfiguration(const string &configFile) {
   bool _exit = false;
   while (!_exit) {
@@ -198,11 +218,14 @@ void runConfiguration(const string &configFile) {
     printf("  4) Disc space \n");
     printf("  5) Memory \n");
     printf("  6) Network traffic \n");
-    printf("  7) Exit \n \n");
+    printf("  7) Output path \n");
+    printf("  8) Exit \n \n");
     char _input;
     scanf("%c", &_input);
 
-    if (_input != '7') {
+    string _filepath;
+    string cmd;
+    if (_input != '8') {
       // configure selected option
       switch (_input) {
         case '1': configureOption(configFile, "CPU", "CPU temperature", 5); break;
@@ -211,6 +234,21 @@ void runConfiguration(const string &configFile) {
         case '4': configureOption(configFile, "Mount", "disc space", 60); break;
         case '5': configureOption(configFile, "Memory", "memory state", 1); break;
         case '6': configureOption(configFile, "Network", "network traffic", 1); break;
+        case '7': flush_cin();
+                  printf("Enter a filepath where ServerStatus shell store your output JSON files: ");
+                  getline(cin, _filepath);
+                  cmd = "mkdir -p " + _filepath;
+                  if (system(&cmd[0]) == 0) {
+                    INI ini(configFile);
+                    ini.writeString("General", "filepath", _filepath);
+                    ini.saveToFile(configFile);
+                    printf("\nDirectory successfully created and set as output path. \nPress return to exit. \n");
+	                scanf("%c", &_input);
+                  } else {
+	                printf("\nFailed to create directory. Please make sure you have the necessary rights and try again. \nPress return to exit. \n");
+	                scanf("%c", &_input);
+                  }
+                  break;
         default:  break;
       }
     } else { _exit = true; }
@@ -219,6 +257,12 @@ void runConfiguration(const string &configFile) {
 
 
 
+//===================================================================================
+// THE MAIN MODE:
+// This creates a daemon process that will keep running in the background
+// and create json files as output.
+// Logging via syslog service possible.
+//===================================================================================
 void startDaemon(const string &configFile) {
   // check of an instance of serverstatus is already running in the background
   string cmd = "pgrep serverstatus";
@@ -328,15 +372,16 @@ void stopDaemon() {
 
 
 
-/**********************************************************************
-**** MAIN FUNCTION
-**********************************************************************/
+//===================================================================================
+// INPUT HANDLING:
+// Parse command line paramter and execute according functions.
+//===================================================================================
 int main(int argc, char *argv[]) {
   
   // Load configuration
   string _configpath;
   if (!getConfigFilePath(_configpath)) {
-    printf("Could not find a configuration file. \nMake sure a file called \"serverstatus.conf\" is located at \"/usr/local/etc/\" or \"/etc/\". \n");
+    printf("Could not find a configuration file. \nMake sure your configuration file is \"%s\" or \"%s\". \n", PATH[0].c_str(), PATH[1].c_str());
     exit(EXIT_FAILURE);
   }
 

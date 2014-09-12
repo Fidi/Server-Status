@@ -42,6 +42,7 @@ SystemStats::SystemStats(status type, string configFile){
   
   // now init the generic class with the config file
   if (loadConfigFile(configFile)) {
+    if (_delta) { _array_size++; }
     initArray();
   } 
 }
@@ -165,6 +166,11 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
 }
 
 
+void SystemStats::Inc(int &value) {
+  if (value < _array_size) { value++; }
+  else { value = 0; }
+}
+
 
 
 // generic json export function
@@ -198,7 +204,9 @@ void SystemStats::writeJSONFile() {
 
 
     double _val;
-    for (int i = _list_position; i < _array_size; i++) {
+    int _start_position = _list_position;
+    if (_delta) { Inc(_start_position); }
+    for (int i = _start_position; i < _array_size; i++) {
       string val;
       stringstream out;
       _val = _list[i].value[j];
