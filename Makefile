@@ -9,7 +9,7 @@ endif
 FLAGS = -std=c++11 -Wall
 
 # Input files
-INPUT = system_stats.o unix_functions.o ini.o serverstatus.o
+INPUT = system_stats.o unix_functions.o config.o serverstatus.o
 
 #PATH variable
 EXEPATH = /bin/
@@ -31,7 +31,7 @@ OUTPUT = serverstatus
 install: $(OUTPUT)
 	$(EXEPATH)mv $(OUTPUT) $(PATH)$(OUTPUT)
 	$(EXEPATH)mkdir -p /usr/local/etc/serverstatus/
-	$(EXEPATH)cp serverstatus.conf /usr/local/etc/serverstatus.conf
+	$(EXEPATH)cp serverstatus.cfg /usr/local/etc/serverstatus.cfg
 	$(EXEPATH)cp serverstatus.man /usr/share/man/man8/serverstatus.8
 	@echo "ServerStatus successfully installed. \n"
 	@echo "Install path:" $(PATH)$(OUTPUT)
@@ -39,13 +39,13 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(OUTPUT) $(FLAGS)
+	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS)
+	
+config.o: config.cpp
+	$(CC) -c config.cpp -stdlib=libc++ $(FLAGS)
 	
 system_stats.o: system_stats.cpp
 	$(CC) -c system_stats.cpp $(FLAGS)
-		
-ini.o: ini.cpp
-	$(CC) -c ini.cpp $(FLAGS)
 
 unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
@@ -58,5 +58,5 @@ clean:
 	
 deinstall:
 	$(EXEPATH)rm -f $(PATH)$(OUTPUT)
-	$(EXEPATH)rm -f /usr/local/etc/serverstatus.conf
+	$(EXEPATH)rm -f /usr/local/etc/serverstatus.cfg
 	$(EXEPATH)rm -f /usr/share/man/man8/serverstatus.8

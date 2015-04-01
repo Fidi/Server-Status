@@ -61,6 +61,7 @@ class SystemStats
     std::string _section;
     json _json_type;
     int _interval;
+    int _refresh_interval;
 
 
     bool loadConfigFile(std::string configFile);

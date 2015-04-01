@@ -13,7 +13,7 @@
 
 #include "system_stats.h"
 #include "unix_functions.h"
-#include "ini.h"
+#include "config.h"
 
 using namespace std;
 
@@ -25,10 +25,18 @@ using namespace std;
 // After one day the counter resets (this is the maximum interval too)
 #define MAX_TIME 1440
 
+// Loop-Time: The loop will restart every X seconds
+// Note: Some calculations within the loop may take some time.
+//       There is no guarantee that loop times smaller than a few seconds
+//       archieved.
+// Note: In case of change the interval values need adjustments.
+// Default: 60 seconds
+#define LOOP_TIME 60
+
 
 // Per default ServerStatus will look for a configuration file at these positions:
 #define PATHC 2
-const string PATH[] = {"/usr/local/etc/serverstatus.conf", "/etc/serverstatus.conf"};
+const string PATH[] = {"/usr/local/etc/serverstatus.cfg", "/etc/serverstatus.cfg"};
 
 
 // Defines which systat classes will be created (a configuration file with 
@@ -65,194 +73,6 @@ bool getConfigFilePath(string &output) {
     }
   }
   return false;
-}
-
-
-void flush_cin() {
-  cin.clear();
-  cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-}
-
-
-
-// configuration wrapper script for all different systat classes
-void configureOption(const string &configFile, const string section, const string description, const int defaultInterval) {
-  // load ini-file:
-  INI ini(configFile);
-
-  system("clear");
-  printf("============================================================= \n");
-  printf("== Start the configuration for %s: \n", description.c_str());
-  printf("============================================================= \n \n");
-
-  flush_cin();
-  char _char_input = 'Y';
-  string _input;
-  int _default_element;
-
-  do {
-    printf("Do you want to activate to read %s? [Y/n] ", description.c_str());
-    scanf("%c", &_char_input);
-  } while ((_char_input != 'Y') && (_char_input != 'y') && (_char_input != 'N') && (_char_input != 'n') && (_char_input != 10 ));
-                  
-  if ((_char_input == 'Y') || (_char_input == 'y') || (_char_input == 10)) { 
-
-    int _numeric_value, _element_count;
-    bool _valid = false;
-
-    // read interval
-    while( !_valid ) {
-      printf("Enter the interval in which the %s shell be read (in minutes): [default %d] ", description.c_str(), defaultInterval);
-      cin >> _input;
-      
-      if ((_numeric_value = atoi(_input.c_str())) == 0) {
-        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
-      } else {
-	    _valid = true;
-        ini.writeInt(section, "interval", _numeric_value);
-      }
-      flush_cin();
-    }
-
-    // delta?
-    do {
-      printf("Do you want use delta values (print changes instead of absolute values)? [y/N] ");
-      scanf("%c", &_char_input);
-    } while ((_char_input != 'Y') && (_char_input != 'y') && (_char_input != 'N') && (_char_input != 'n') && (_char_input != 10 ));
-
-    if ((_char_input == 'N') || (_char_input == 'n') || (_char_input == 10)) { 
-      ini.writeInt(section, "delta", 0);
-    } else {
-      ini.writeInt(section, "delta", 1);
-    }
-
-
-    _valid = false;
-    // read graph type     
-    while( !_valid ) {
-      printf("Which kind of graph type do you want to use? [line | bar | none] (e.g. used by iOS StatusBoard) ");
-      cin >> _input;
-      
-      if ((_input != "line") && (_input != "bar") && (_input != "none")) {
-        printf("You entered an invalid input. Please write \"line\", \"bar\" or \"none\".\n");
-      } else {
-	    _valid = true;
-        ini.writeString(section, "graphtype", _input);
-        if (_input == "bar") { _default_element = 1; }
-        else { _default_element = 30; }
-      }
-      flush_cin();
-    }
-
-
-    _valid = false;
-    // read array size         
-    while( !_valid ) {
-      printf("Enter how many old values should be stored: [default %d] ", _default_element);
-      cin >> _input;
-      
-      if ((_numeric_value = atoi(_input.c_str())) == 0) {
-        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
-      } else {
-	    _valid = true;
-        ini.writeInt(section, "elements", _numeric_value);
-      }
-      flush_cin();
-    }
-
-
-    _valid = false;
-    // read element count         
-    while( !_valid ) {
-      printf("Enter how many different values exist (e.g. 2 cores, 5 discs, ...): ");
-      cin >> _input;
-      
-      if ((_element_count = atoi(_input.c_str())) == 0) {
-        printf("You entered an invalid input. Please enter a numeric value greater than zero.\n");
-      } else {
-	    _valid = true;
-        ini.writeInt(section, "count", _element_count);
-      }
-      flush_cin();
-    }
-
-    // read description and command for each element
-    for (int i = 0; i < _element_count; i++) {
-      
-        printf("Enter a description for element no. %d: ", i+1);
-        getline(cin, _input);
-        //flush_cin();
-        ini.writeString(section, "desc" + IntToStr(i+1), _input);
-
-        printf("Enter a shell command that returns a integer or float value for element no. %d: ", i+1);
-        getline(cin, _input);
-        //flush_cin();
-        ini.writeString(section, "cmd" + IntToStr(i+1), _input);
-    }
-
-  } else {
-    // setting the count to zero deactivates the function
-    ini.writeInt(section, "count", 0);
-    flush_cin();
-  }
-
-  printf("\n%s configuration successful. \nPress return to exit. \n", description.c_str());
-  scanf("%c", &_char_input);
-  
-  // save changed ini file
-  ini.saveToFile(configFile);
-}
-
-
-
-
-// if started with "--config" or "-c" you get into configuration mode
-void runConfiguration(const string &configFile) {
-  bool _exit = false;
-  while (!_exit) {
-    system("clear");
-    printf("\n Please enter a number to start the configuration: \n");
-    printf("  1) CPU temperature \n");
-    printf("  2) Load Average \n");
-    printf("  3) HDD temperature \n");
-    printf("  4) Disc space \n");
-    printf("  5) Memory \n");
-    printf("  6) Network traffic \n");
-    printf("  7) Output path \n");
-    printf("  8) Exit \n \n");
-    char _input;
-    scanf("%c", &_input);
-
-    string _filepath;
-    string cmd;
-    if (_input != '8') {
-      // configure selected option
-      switch (_input) {
-        case '1': configureOption(configFile, "CPU", "CPU temperature", 5); break;
-        case '2': configureOption(configFile, "Load", "Load Average", 1); break;
-        case '3': configureOption(configFile, "HDD", "HDD temperature", 60); break;
-        case '4': configureOption(configFile, "Mount", "disc space", 60); break;
-        case '5': configureOption(configFile, "Memory", "memory state", 1); break;
-        case '6': configureOption(configFile, "Network", "network traffic", 1); break;
-        case '7': flush_cin();
-                  printf("Enter a filepath where ServerStatus shell store your output JSON files: ");
-                  getline(cin, _filepath);
-                  cmd = "mkdir -p " + _filepath;
-                  if (system(&cmd[0]) == 0) {
-                    INI ini(configFile);
-                    ini.writeString("General", "filepath", _filepath);
-                    ini.saveToFile(configFile);
-                    printf("\nDirectory successfully created and set as output path. \nPress return to exit. \n");
-	                scanf("%c", &_input);
-                  } else {
-	                printf("\nFailed to create directory. Please make sure you have the necessary rights and try again. \nPress return to exit. \n");
-	                scanf("%c", &_input);
-                  }
-                  break;
-        default:  break;
-      }
-    } else { _exit = true; }
-  }
 }
 
 
@@ -317,31 +137,39 @@ void startDaemon(const string &configFile) {
 
   time_t startTime,endTime;
 
-
-  INI ini(configFile);
+  config *configuration = new config(configFile);
+  //INI ini(configFile);
   syslog(LOG_DEBUG, "Configuration file loaded.");
+  
 
   sys_stat sys;
   for (int j = 0; j < SYS_COUNT; j++) {
     // read interval time and create class for each at top defined status type
-    sys.interval.push_back(ini.readInt(getSectionFromType(SYS_TYPE[j]), "interval"));
+    int intervalTime = configuration->readInterval(getSectionFromType(SYS_TYPE[j]).c_str());
+    if (configuration->readEnabled(getSectionFromType(SYS_TYPE[j]).c_str() == false) {
+      intervalTime = 0;
+    }
+    sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
   }     
   syslog(LOG_DEBUG, "Class objects created.");
-
-
 		
   // the loop fires once every minute
   while(1) {
 	
     // get the duration of function calling...
     startTime = clock();
-
+    
     // for each status type read status if interval time is reached
     for (int j = 0; j < SYS_COUNT; j++) {
-      if (i % sys.interval[j] == 0) { sys.stat[j]->readStatus(); }
+      // TODO: true durch "if enabled" ersetzen
+      if ((sys.interval[j] != 0) && true) {
+        if (i % sys.interval[j] == 0) { 
+          sys.stat[j]->readStatus(); 
+        }
+      }
     }
-	
+	 
     // update counter
     if (i < MAX_TIME) { i++; } else { i = 0; }
 			
@@ -351,7 +179,7 @@ void startDaemon(const string &configFile) {
     endTime = clock();
     elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
 			
-    sleep(60 - elapsedTime);  // let each loop last one minute
+    sleep(LOOP_TIME - elapsedTime);  // sleep the remaining time
   }
    
   closelog();
@@ -404,15 +232,9 @@ int main(int argc, char *argv[]) {
     startDaemon(_configpath);
 
   } else if (argc > 0) {
-    // MODE 2: parse the options:
-  
-    if ((strcmp(argv[1], "--config") == 0) || (strcmp(argv[1], "-c") == 0)) {
-      // Configuration mode:
-      runConfiguration(_configpath);
-      exit(EXIT_SUCCESS);
-    }
+    // MODE 2: parse the options: 
 
-    else if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
+    if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
       // Show help:
       system("man serverstatus");
       exit(EXIT_SUCCESS);

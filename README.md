@@ -11,6 +11,7 @@ An example is the iPad app [StatusBoard](http://panic.com/statusboard/) that can
 Dependencies
 ---
 To build this daemon a C++ compiler is required that supports C++11 (e.g. GCC 4.7 and above, clang 2.9 and above, ...).
+It requires the C++ version of libconfig as well: [Link](http://www.hyperrealm.com/libconfig/libconfig_manual.html)
 
 The daemon might require other programs at runtime. For example to get the hdd temperature on FreeBSD you need a third-party program like `smartmontools`. 
 On other operation systems there might be other programs or commands necessary that need to be installed.

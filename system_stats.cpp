@@ -5,10 +5,11 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <syslog.h>
 
 #include "system_stats.h"
 #include "unix_functions.h"
-#include "ini.h"
+#include "config.h"
 
 using namespace std;
 
@@ -17,12 +18,12 @@ using namespace std;
 string getSectionFromType(status type) {
   string res;
   switch (type) {
-    case CPU: res     = "CPU";     break;
-    case Load: res    = "Load";    break;
-    case HDD: res     = "HDD";     break;
-    case Mount: res   = "Mount";   break;
-    case Memory: res  = "Memory";  break;
-    case Network: res = "Network"; break;
+    case CPU: res     = "cpu";     break;
+    case Load: res    = "load";    break;
+    case HDD: res     = "hdd";     break;
+    case Mount: res   = "mount";   break;
+    case Memory: res  = "memory";  break;
+    case Network: res = "network"; break;
     default: throw "No status type submitted."; break;
   }
   
@@ -56,7 +57,6 @@ SystemStats::~SystemStats() {
 
 // function to save the systems temperature into array
 void SystemStats::readStatus() {
-  
   // read requested values:
   std::vector<double> newVal;
   for (int i = 0; i < _element_count; i++) {
@@ -84,32 +84,34 @@ void SystemStats::readStatus() {
 bool SystemStats::loadConfigFile(string configFile) {
 	
   if (FileExists(configFile)) {
-	_section = getSectionFromType(_type);
-    INI ini(configFile);
+	  _section = getSectionFromType(_type);
+    config *configuration = new config(configFile);
 
     // read array sizes:
-    _array_size = ini.readInt(_section, "elements");
+    _array_size = configuration->readElementCount(_section);
 
-    // read cpu infos
-    _element_count = ini.readInt(_section, "count");
+    // read number of informations:
+    _element_count = configuration->readSequenceCount(_section);
     for (int i=1; i<=_element_count; i++) {
-      _cmd.push_back(ini.readString(_section, "cmd" + IntToStr(i)));
-      _description.push_back(ini.readString(_section, "desc" + IntToStr(i)));
+      _cmd.push_back(configuration->readSequenceCommand(_section, i-1));
+      _description.push_back(configuration->readSequenceTitle(_section, i-1));
     }
 
-    if (ini.readString(_section, "graphtype") == "bar") {
+    if (configuration->readJSONType(_section) == "bar") {
       _json_type = bar;
     } else {
       _json_type = line;
     }
-    if (ini.readInt(_section, "delta") == 1) {
-      _delta = true;
-    } else {
-      _delta = false;
-    }
+    
+    _delta = configuration->readDelta(_section);
+    
+    _refresh_interval = configuration->readJSONRefreshInterval(_section);
 
-    _interval = ini.readInt(_section, "interval");
-    _filepath = ini.readString("General", "filepath");
+    _interval = configuration->readInterval(_section);
+    _filepath = configuration->readFilepath();
+    
+    syslog(LOG_DEBUG, "All configuration loaded");
+    
     return true;
   }
 
@@ -180,21 +182,17 @@ void SystemStats::writeJSONFile() {
   _out_file << "{ \n";
   _out_file << "  \"graph\" : { \n";
   _out_file << "  \"title\" : \"" + _section + "\", \n";
+  
   string _graphtype;
   switch (_json_type) {
     case bar: _graphtype = "bar"; break;
     default: _graphtype = "line"; break;
-  }
+  }  
   _out_file << "  \"type\" : \"" + _graphtype + "\", \n";
-  string _update;
-  switch (_interval) {
-    case 1: _update = "60"; break;
-    case 5: _update = "150"; break;
-    default: _update = "300"; break;
-  }
-  _out_file << "  \"refreshEveryNSeconds\" : " + _update + ", \n";
+  _out_file << "  \"refreshEveryNSeconds\" : " + _refresh_interval + ", \n";
+  
   _out_file << "  \"datasequences\" : [ \n";
-
+  
   // for every load value print a line:
   for (int j = 0; j < _element_count; j++) {
 	
@@ -227,7 +225,6 @@ void SystemStats::writeJSONFile() {
       }
     }
 
-
     _out_file << "             ] \n";
     if (j == _element_count - 1) {
 	  _out_file << "      } \n";
@@ -236,9 +233,10 @@ void SystemStats::writeJSONFile() {
     }
 
   }
-
+  
   _out_file << "  ] \n";
   _out_file << "  } \n";
   _out_file << "} \n";
+  
   _out_file.close();
 }
