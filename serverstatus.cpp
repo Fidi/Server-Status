@@ -22,6 +22,11 @@ using namespace std;
 // CONFIGURATION SECTION
 //===================================================================================
 
+// Version to check with possibly incompatible config files
+#define VERSION "v0.4-beta"
+
+
+
 // After one day the counter resets (this is the maximum interval too)
 #define MAX_TIME 1440
 
@@ -97,10 +102,10 @@ void startDaemon(const string &configFile) {
   pid = fork();
 
   // could not create child process
-  if (pid < 0) { printf("Starting ServerStatus failed. \n"); exit(EXIT_FAILURE); }
+  if (pid < 0) { printf("Starting ServerStatus: [failed] \n"); exit(EXIT_FAILURE); }
 
   // child process created: terminate parent
-  if (pid > 0) { printf("Starting ServerStatus... \n"); exit(EXIT_SUCCESS); }
+  if (pid > 0) { printf("Starting ServerStatus: [successful]\n"); exit(EXIT_SUCCESS); }
 
   umask(0);
 
@@ -138,21 +143,27 @@ void startDaemon(const string &configFile) {
   time_t startTime,endTime;
 
   config *configuration = new config(configFile);
-  //INI ini(configFile);
   syslog(LOG_DEBUG, "Configuration file loaded.");
+  
+  
+  // Version check
+  if (configuration->readVersion() != VERSION) {
+    throw "Configuration version does not match.";
+    syslog (LOG_ERR, "Error: Configuration version does not match.");
+    exit(EXIT_FAILURE);
+  }
   
 
   sys_stat sys;
   for (int j = 0; j < SYS_COUNT; j++) {
     // read interval time and create class for each at top defined status type
     int intervalTime = configuration->readInterval(getSectionFromType(SYS_TYPE[j]).c_str());
-    if (configuration->readEnabled(getSectionFromType(SYS_TYPE[j]).c_str() == false) {
+    if (configuration->readEnabled(getSectionFromType(SYS_TYPE[j]).c_str()) == false) {
       intervalTime = 0;
     }
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
-  }     
-  syslog(LOG_DEBUG, "Class objects created.");
+  }
 		
   // the loop fires once every minute
   while(1) {
@@ -162,8 +173,8 @@ void startDaemon(const string &configFile) {
     
     // for each status type read status if interval time is reached
     for (int j = 0; j < SYS_COUNT; j++) {
-      // TODO: true durch "if enabled" ersetzen
-      if ((sys.interval[j] != 0) && true) {
+      // if interval = 0 -> disabled
+      if ((sys.interval[j] != 0)) {
         if (i % sys.interval[j] == 0) { 
           sys.stat[j]->readStatus(); 
         }
@@ -187,16 +198,42 @@ void startDaemon(const string &configFile) {
 
 
 void stopDaemon() {
+  bool killed = false;
   string cmd = "pgrep serverstatus";
   vector<string> output = split(getCmdOutput(&cmd[0]), 10);
   for (int i = 0; i < output.size(); i++) {
     if  (atoi(output[i].c_str()) != getpid()) {
       string killcmd = "kill " + output[i];
       system(killcmd.c_str());
+      killed = true;
+      printf("ServerStatus [%s] stopped. \n", output[i].c_str());
     }
   }
-  printf("ServerStatus stopped. \n");
+  
+  if (!killed) {
+    printf("ServerStatus is currently not running on your system.");
+  }
 }
+
+
+
+void getDaemonStatus() {
+  bool running = false;
+  string cmd = "pgrep serverstatus";
+  vector<string> output = split(getCmdOutput(&cmd[0]), 10);
+  for (int i = 0; i < output.size(); i++) {
+    if  (atoi(output[i].c_str()) != getpid()) {
+      running = true;
+      printf("ServerStatus is currently running with pid %s. \n", output[i].c_str());
+    }
+  }
+  
+  if (running == false) {
+    printf("ServerStatus is currently not running. \n");
+  }
+}
+
+
 
 
 
@@ -212,6 +249,10 @@ int main(int argc, char *argv[]) {
     printf("Could not find a configuration file. \nMake sure your configuration file is \"%s\" or \"%s\". \n", PATH[0].c_str(), PATH[1].c_str());
     exit(EXIT_FAILURE);
   }
+  
+  if (getuid() != 0) {
+    printf("\nWarning: ServerStatus is currently not running with root privileges. \nServerStatus itself does not need root privileges but if you use any commands that do need require those there might occur some problems. \nIf you encounter any problems try restarting ServerStatus as root. \n\n\n");
+  }
 
   
   /***************************************************************
@@ -222,9 +263,9 @@ int main(int argc, char *argv[]) {
   ***     is killed
   ***  2) The secound mode is starting with paramteres:
   ***     Right now these are:
-  ***      "serverstatus --config" or "serverstatus -c"
   ***      "serverstatus --help" or "serverstatus -h"
   ***      "start", "restart" and "stop" 
+  ***      "status"
   ***************************************************************/ 
   
   if ((argc == 0) || ((argc > 0) && (strcmp(argv[1],"start") == 0))) {
@@ -251,6 +292,11 @@ int main(int argc, char *argv[]) {
       // stop and start serverstatus again:
       stopDaemon();
       startDaemon(_configpath);
+    }
+    
+    else if (strcmp(argv[1], "status") == 0) {
+      // return status
+      getDaemonStatus();
     }
   }
 }

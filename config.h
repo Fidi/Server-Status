@@ -37,25 +37,11 @@ class config
 		int readJSONyAxisMinimum(std::string type);
 		int readJSONyAxisMaximum(std::string type);
 		
+		// returns sequence informations
 		int readSequenceCount(std::string type);
 		std::string readSequenceCommand(std::string type, int num);
 		std::string readSequenceTitle(std::string type, int num);
 		std::string readSequenceColor(std::string type, int num);
-	/*
-		// read
-		int readInt(std::string section, std::string key);
-		long readLong(std::string section, std::string key);
-		double readFloat(std::string section, std::string key);
-		char readChar(std::string section, std::string key);
-		std::string readString(std::string section, std::string key);
-
-		// write
-		void writeInt(std::string section, std::string key, int value);
-		void writeLong(std::string section, std::string key, long value);
-		void writeFloat(std::string section, std::string key, double value);
-		void writeChar(std::string section, std::string key, char value);
-		void writeString(std::string section, std::string key, std::string value);
-*/
 	private:
 		libconfig::Config fConfigfile;
 };

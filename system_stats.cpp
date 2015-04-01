@@ -95,6 +95,7 @@ bool SystemStats::loadConfigFile(string configFile) {
     for (int i=1; i<=_element_count; i++) {
       _cmd.push_back(configuration->readSequenceCommand(_section, i-1));
       _description.push_back(configuration->readSequenceTitle(_section, i-1));
+      _color.push_back(configuration->readSequenceColor(_section, i-1));
     }
 
     if (configuration->readJSONType(_section) == "bar") {
@@ -189,7 +190,7 @@ void SystemStats::writeJSONFile() {
     default: _graphtype = "line"; break;
   }  
   _out_file << "  \"type\" : \"" + _graphtype + "\", \n";
-  _out_file << "  \"refreshEveryNSeconds\" : " + _refresh_interval + ", \n";
+  _out_file << "  \"refreshEveryNSeconds\" : " << _refresh_interval << ", \n";
   
   _out_file << "  \"datasequences\" : [ \n";
   
@@ -198,7 +199,10 @@ void SystemStats::writeJSONFile() {
 	
     _out_file << "      {";
     _out_file << "      \"title\": \"" << _description[j] << + "\", \n";
-    _out_file << "            \"datapoints\" : [ \n";
+    if (_color[j] != "-") {
+      _out_file << "             \"color\": \"" << _color[j] << + "\", \n";
+    }
+    _out_file << "             \"datapoints\" : [ \n";
 
 
     double _val;

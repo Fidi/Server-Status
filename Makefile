@@ -35,7 +35,7 @@ install: $(OUTPUT)
 	$(EXEPATH)cp serverstatus.man /usr/share/man/man8/serverstatus.8
 	@echo "ServerStatus successfully installed. \n"
 	@echo "Install path:" $(PATH)$(OUTPUT)
-	@echo "Config path: /usr/local/etc/serverstatus.conf \n"
+	@echo "Config path: /usr/local/etc/serverstatus.cfg \n"
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."

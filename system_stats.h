@@ -54,6 +54,7 @@ class SystemStats
     int _element_count;
     std::vector<std::string> _cmd;
     std::vector<std::string> _description;
+    std::vector<std::string> _color;
 
     bool _delta;
 
