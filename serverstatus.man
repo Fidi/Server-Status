@@ -16,9 +16,12 @@ stop			Stops any running instance of ServerStatus.
 
 restart		Stops any running instance of ServerStatus and starts a new daemon process. This resets the JSON files.
 
+status		Returns if ServerStatus is running and which pid it is using.
+
 --help, -h	Show a help page with a description and available commands.
 
---config, -c	Executes a script that allows to configure the daemons settings such as element count or commands to get system statistics. The configuration is stored in a file located at /usr/local/etc/ (FreeBSD) or /etc/ (Linux) and must be named "serverstatus.conf".
+--config-check, -c	Checks the configuration file for syntax errors or possible security threads.
+
 
 .SH SEE ALSO
 sysctl(8), smartmontools(8), uptime(1), df(1)

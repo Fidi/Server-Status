@@ -42,8 +42,14 @@ class config
 		std::string readSequenceCommand(std::string type, int num);
 		std::string readSequenceTitle(std::string type, int num);
 		std::string readSequenceColor(std::string type, int num);
+		
+		// other stuff:
+		void showErrorLog();
+		void performSecurityCheck(std::string filename);
 	private:
 		libconfig::Config fConfigfile;
+		
+		std::string fErrorCode;
 };
 
 

@@ -89,6 +89,8 @@ bool getConfigFilePath(string &output) {
 // Logging via syslog service possible.
 //===================================================================================
 void startDaemon(const string &configFile) {
+  int userID = getuid();
+  
   // check of an instance of serverstatus is already running in the background
   string cmd = "pgrep serverstatus";
   string did = getCmdOutput(&cmd[0]);
@@ -96,6 +98,10 @@ void startDaemon(const string &configFile) {
     printf("Daemon is running already. \n");
     exit(EXIT_FAILURE);
   }
+  // check for root privileges
+  if (userID != 0) {
+    printf("\nWarning: ServerStatus is currently not running with root privileges. \nServerStatus itself does not need root privileges but if you use any commands that do need require those there might occur some problems. \nIf you encounter any problems try restarting ServerStatus as root. \n\n\n");
+    }
 
 
   pid_t pid, sid;
@@ -113,7 +119,10 @@ void startDaemon(const string &configFile) {
   //setlogmask(LOG_UPTO (LOG_NOTICE));
   openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
 
-  syslog(LOG_NOTICE, "Started by User %d", getuid());
+  syslog(LOG_NOTICE, "Started by User %d", userID);
+  if (userID != 0) {
+    syslog(LOG_WARNING, "Warning: ServerStatus is currently not running with root privileges. \nServerStatus itself does not need root privileges but if you use any commands that do need require those there might occur some problems. \nIf you encounter any problems try restarting ServerStatus as root.");
+  }
 
   sid = setsid();
   if (sid < 0) {
@@ -164,6 +173,7 @@ void startDaemon(const string &configFile) {
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
   }
+  syslog(LOG_DEBUG, "sys_stat objects created.");
 		
   // the loop fires once every minute
   while(1) {
@@ -211,7 +221,7 @@ void stopDaemon() {
   }
   
   if (!killed) {
-    printf("ServerStatus is currently not running on your system.");
+    printf("ServerStatus is currently not running on your system. \n");
   }
 }
 
@@ -248,10 +258,6 @@ int main(int argc, char *argv[]) {
   if (!getConfigFilePath(_configpath)) {
     printf("Could not find a configuration file. \nMake sure your configuration file is \"%s\" or \"%s\". \n", PATH[0].c_str(), PATH[1].c_str());
     exit(EXIT_FAILURE);
-  }
-  
-  if (getuid() != 0) {
-    printf("\nWarning: ServerStatus is currently not running with root privileges. \nServerStatus itself does not need root privileges but if you use any commands that do need require those there might occur some problems. \nIf you encounter any problems try restarting ServerStatus as root. \n\n\n");
   }
 
   
@@ -297,6 +303,17 @@ int main(int argc, char *argv[]) {
     else if (strcmp(argv[1], "status") == 0) {
       // return status
       getDaemonStatus();
+    }
+    
+    if ((strcmp(argv[1], "--config-check") == 0) || (strcmp(argv[1], "-c") == 0)) {
+      // Check configuration file
+      config *configuration = new config(_configpath);
+      configuration->showErrorLog();
+      configuration->performSecurityCheck(_configpath);
+    }
+    
+    else {
+      printf("command line parameter not recognised. \nUse serverstatus --help to see all possible commands.\n");
     }
   }
 }
