@@ -14,6 +14,7 @@
 using namespace std;
 
 
+
 // helper function to get a string from the status type
 string getSectionFromType(status type) {
   string res;
@@ -70,6 +71,60 @@ void SystemStats::readStatus() {
 
   // write json file:
   writeJSONFile();
+}
+
+
+// this will load the contents from a json file into the array:
+bool SystemStats::loadFromFile(){
+  std::vector<string> lines;
+  string pattern = "{ \"title\" : ";
+  
+  // find lines that have datapoints:
+  ifstream file(_filepath + _section + ".json");
+  string str; 
+  while (getline(file, str))
+  {
+    if (str.find(pattern) != std::string::npos) {
+      lines.push_back(str);
+    }
+  }
+  
+  // now all data values are inside the lines-vector.
+  // check if their size matches the configuration:
+  int datasize = _array_size * _element_count; 
+  if (_delta) { datasize -= _element_count; }
+  if (lines.size() != datasize) {
+    syslog(LOG_WARNING, "%s: Could not load existing json files. Datapoints mismatch configuration file.", _section.c_str());
+    return false;
+  }
+  
+  // extract data and add them to the array
+  string tmp;
+  string tim;
+  string va;
+  string pattern2 = "\"value\" : ";
+  std::vector<double> val;
+  for (int j = 0; j < datasize/_element_count; j++) {
+    // 1) get time:
+    tmp = lines[j];
+    tmp.erase(0, tmp.find(pattern) + pattern.size());
+    tim = tmp.substr(tmp.find("\"")+1, tmp.find("\"", 2)-1);
+    
+    // 2) get values:
+    val.clear();
+    for (int i = 0; i < _element_count; i++) {
+      tmp = lines[j + (i*_array_size)];
+      tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
+      va = tmp.substr(0, tmp.find("},"));
+      // if atof fails it will write "0"
+      val.push_back(atof(va.c_str()));
+    }
+    
+    // 3) add record
+    setValue(tim, val);
+  }
+
+  return true;
 }
 
 

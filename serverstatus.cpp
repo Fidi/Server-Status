@@ -172,6 +172,7 @@ void startDaemon(const string &configFile) {
     }
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
+    sys.stat[j]->loadFromFile(); 
   }
   syslog(LOG_DEBUG, "sys_stat objects created.");
 		

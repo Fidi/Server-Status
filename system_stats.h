@@ -43,6 +43,7 @@ class SystemStats
     ~SystemStats();
 
     void readStatus();
+    bool loadFromFile();
 
   private:
     status _type;
