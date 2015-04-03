@@ -14,27 +14,6 @@
 using namespace std;
 
 
-bool charIsNumber(string in, bool colon) {
-  for (int i = 0; i < in.length(); i++) {
-    switch (in.at(i)) {
-      case '.':
-    	case '1': 
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-      case '0': return false; break;
-      case ':': if (!colon) {return false;} break;
-      default: break;
-    }
-  }
-  return true;
-}
-
 
 // helper function to get a string from the status type
 string getSectionFromType(status type) {
@@ -97,12 +76,10 @@ void SystemStats::readStatus() {
 
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
-  // Notes:
-  //  - all lines with '{ "title" :' conclude data
-  //  - the oldest value is the first line
   std::vector<string> lines;
   string pattern = "{ \"title\" : ";
   
+  // find lines that have datapoints:
   ifstream file(_filepath + _section + ".json");
   string str; 
   while (getline(file, str))
@@ -118,10 +95,10 @@ bool SystemStats::loadFromFile(){
   if (_delta) { datasize -= _element_count; }
   if (lines.size() != datasize) {
     syslog(LOG_WARNING, "%s: Could not load existing json files. Datapoints mismatch configuration file.", _section.c_str());
-    syslog(LOG_WARNING, "%lu lines, %d array size, %d data sequences", lines.size(), _array_size, _element_count);
     return false;
   }
   
+  // extract data and add them to the array
   string tmp;
   string tim;
   string va;
@@ -139,13 +116,13 @@ bool SystemStats::loadFromFile(){
       tmp = lines[j + (i*_array_size)];
       tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
       va = tmp.substr(0, tmp.find("},"));
+      // if atof fails it will write "0"
       val.push_back(atof(va.c_str()));
-      syslog(LOG_WARNING, "%f", atof(va.c_str()));
     }
     
+    // 3) add record
     setValue(tim, val);
   }
-
 
   return true;
 }
