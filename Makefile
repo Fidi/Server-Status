@@ -6,7 +6,7 @@ else
 endif
 
 #Compiler flags
-FLAGS = -std=c++11 -Wall
+FLAGS = -std=c++11 -Wall -I /usr/local/include
 
 # Input files
 INPUT = system_stats.o unix_functions.o config.o serverstatus.o
@@ -28,6 +28,8 @@ OUTPUT = serverstatus
 
 #------------------------------------------------------------------------------
 
+all: $(OUTPUT)
+
 install: $(OUTPUT)
 	$(EXEPATH)mv $(OUTPUT) $(PATH)$(OUTPUT)
 	$(EXEPATH)mkdir -p /usr/local/etc/serverstatus/
@@ -39,7 +41,7 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS)
+	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -L /usr/local/lib
 	
 config.o: config.cpp
 	$(CC) -c config.cpp -stdlib=libc++ $(FLAGS)
