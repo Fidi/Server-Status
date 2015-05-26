@@ -31,6 +31,7 @@ typedef enum _status_t status;
 enum _json_t {
   line,
   bar,
+  pie,
   none
 };
 typedef enum _json_t json;
@@ -58,6 +59,7 @@ class SystemStats
     std::vector<std::string> _color;
 
     bool _delta;
+    std::vector<double> _delta_abs_value;
 
     std::string _filepath;
     std::string _section;

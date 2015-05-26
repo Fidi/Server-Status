@@ -77,15 +77,20 @@ void SystemStats::readStatus() {
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
   std::vector<string> lines;
-  string pattern = "{ \"title\" : ";
+  string pattern0 = "{ \"title\" : ";
+  string pattern1 = "\"absolute\": \"";
   
   // find lines that have datapoints:
   ifstream file(_filepath + _section + ".json");
   string str; 
   while (getline(file, str))
   {
-    if (str.find(pattern) != std::string::npos) {
+    if (str.find(pattern0) != std::string::npos) {
       lines.push_back(str);
+    } else if ((_delta) && (str.find(pattern1) != std::string::npos)) {
+      str.erase(0, str.find(pattern1) + pattern1.size());  
+      str = str.substr(0, str.find("\","));
+      _delta_abs_value.push_back(atof(str.c_str()));
     }
   }
   
@@ -98,6 +103,11 @@ bool SystemStats::loadFromFile(){
     return false;
   }
   
+  // for delta add the previous value for correct calculation
+  if (_delta) {
+    setValue("-", _delta_abs_value);
+  }
+  
   // extract data and add them to the array
   string tmp;
   string tim;
@@ -107,17 +117,22 @@ bool SystemStats::loadFromFile(){
   for (int j = 0; j < datasize/_element_count; j++) {
     // 1) get time:
     tmp = lines[j];
-    tmp.erase(0, tmp.find(pattern) + pattern.size());
+    tmp.erase(0, tmp.find(pattern0) + pattern0.size());
     tim = tmp.substr(tmp.find("\"")+1, tmp.find("\"", 2)-1);
     
     // 2) get values:
     val.clear();
     for (int i = 0; i < _element_count; i++) {
-      tmp = lines[j + (i*_array_size)];
+      tmp = lines[j + (i*(_array_size-1))];
       tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
-      va = tmp.substr(0, tmp.find("},"));
+      va = tmp.substr(0, tmp.find("}"));
       // if atof fails it will write "0"
-      val.push_back(atof(va.c_str()));
+      if (_delta) {
+        _delta_abs_value[i] = _delta_abs_value[i] + atof(va.c_str());
+        val.push_back(_delta_abs_value[i]);
+      } else {
+        val.push_back(atof(va.c_str()));
+      }
     }
     
     // 3) add record
@@ -153,8 +168,11 @@ bool SystemStats::loadConfigFile(string configFile) {
       _color.push_back(configuration->readSequenceColor(_section, i-1));
     }
 
-    if (configuration->readJSONType(_section) == "bar") {
+    string _type = configuration->readJSONType(_section);
+    if (_type == "bar") {
       _json_type = bar;
+    } else if (_type == "pie") {
+      _json_type = pie;
     } else {
       _json_type = line;
     }
@@ -185,7 +203,7 @@ void SystemStats::initArray() {
   
   // init array with empty values
   for (int i = 0; i < _array_size; i++) {
-    _list[i].timestamp    = "0";
+    _list[i].timestamp = "0";
 
     for (int j = 0; j < _element_count; j++) {
       _list[i].value.push_back(0);
@@ -242,6 +260,7 @@ void SystemStats::writeJSONFile() {
   string _graphtype;
   switch (_json_type) {
     case bar: _graphtype = "bar"; break;
+    case pie: _graphtype = "pie"; break;
     default: _graphtype = "line"; break;
   }  
   _out_file << "  \"type\" : \"" + _graphtype + "\", \n";
@@ -257,19 +276,31 @@ void SystemStats::writeJSONFile() {
     if (_color[j] != "-") {
       _out_file << "             \"color\": \"" << _color[j] << + "\", \n";
     }
-    _out_file << "             \"datapoints\" : [ \n";
-
-
+    
+    
     double _val;
     int _start_position = _list_position;
     if (_delta) { Inc(_start_position); }
+    
+    if (_delta) {
+      _out_file << "             \"absolute\": \"" << _list[_list_position].value[j] << + "\", \n";
+    }
+    
+    _out_file << "             \"datapoints\" : [ \n";
+
+
     for (int i = _start_position; i < _array_size; i++) {
       string val;
       stringstream out;
       _val = _list[i].value[j];
       if (_delta) { if (i == 0) { _val -= _list[_array_size-1].value[j]; } else { _val -= _list[i-1].value[j]; } }
       out << _val;
-      _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
+      if ((_list_position == 0) && (i == _array_size-1)) {
+        _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "} \n";
+      } else {
+        _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
+      }
+      
     }
 
     if (_list_position != 0) {
@@ -280,7 +311,12 @@ void SystemStats::writeJSONFile() {
         _val = _list[i].value[j];
         if (_delta) { if (i == 0) { _val -= _list[_array_size-1].value[j]; } else { _val -= _list[i-1].value[j]; } }
         out << _val;
-        _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
+        if (i == _list_position - 1) {
+          _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "} \n";
+        } else {
+          _out_file << "               { \"title\" : \"" + _list[i].timestamp + "\", \"value\" : " + out.str() + "}, \n";
+        }
+        
       }
     }
 

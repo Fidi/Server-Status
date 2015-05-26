@@ -65,9 +65,9 @@ string config::readFilepath() {
 
 
 
-bool config::readEnabled(std::string type){
+bool config::readEnabled(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()];
 		bool enabled;
 		section.lookupValue("enabled", enabled);
 		return enabled;
@@ -75,9 +75,9 @@ bool config::readEnabled(std::string type){
 		return false;
 	}
 }		
-int config::readInterval(std::string type){
+int config::readInterval(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()];
 		int interval;
 		section.lookupValue("interval", interval);
 		return interval;
@@ -85,9 +85,9 @@ int config::readInterval(std::string type){
 		return 0;
 	}
 }	
-int config::readElementCount(std::string type){
+int config::readElementCount(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()];
 		int element;
 		section.lookupValue("elements", element);
 		return element;
@@ -97,7 +97,7 @@ int config::readElementCount(std::string type){
 }
 bool config::readDelta(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()];
 		bool delta;
 		section.lookupValue("delta", delta);
 		return delta;
@@ -108,9 +108,9 @@ bool config::readDelta(string type){
 
 
 
-string config::readJSONTitle(std::string type){
+string config::readJSONTitle(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["header"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
 		string title;
 		section.lookupValue("title", title);
 		return title;
@@ -118,9 +118,9 @@ string config::readJSONTitle(std::string type){
 		return "No title found";
 	}
 }
-string config::readJSONType(std::string type){
+string config::readJSONType(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["header"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
 		string jtype;
 		section.lookupValue("type", jtype);
 		return jtype;
@@ -128,9 +128,9 @@ string config::readJSONType(std::string type){
 		return "line";
 	}
 }
-int config::readJSONRefreshInterval(std::string type){
+int config::readJSONRefreshInterval(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["header"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
 		int refresh;
 		section.lookupValue("refreshEveryNSeconds", refresh);
 		return refresh;
@@ -138,9 +138,9 @@ int config::readJSONRefreshInterval(std::string type){
 		return 300;
 	}
 }
-int config::readJSONyAxisMinimum(std::string type){
+int config::readJSONyAxisMinimum(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["header"]["yAxis"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"]["yAxis"];
 		int yMin;
 		section.lookupValue("minValue", yMin);
 		return yMin;
@@ -148,9 +148,9 @@ int config::readJSONyAxisMinimum(std::string type){
 		return -42;
 	}
 }
-int config::readJSONyAxisMaximum(std::string type){
+int config::readJSONyAxisMaximum(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["header"]["yAxis"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"]["yAxis"];
 		int yMax;
 		section.lookupValue("maxValue", yMax);
 		return yMax;
@@ -162,33 +162,33 @@ int config::readJSONyAxisMaximum(std::string type){
 
 
 
-int config::readSequenceCount(std::string type){
+int config::readSequenceCount(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["sequence"]["cmd"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["cmd"];
 		return section.getLength();
 	} catch (const SettingNotFoundException &nfound) {
 		return 0;
 	}
 }
-std::string config::readSequenceCommand(std::string type, int num){
+string config::readSequenceCommand(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["sequence"]["cmd"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["cmd"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "echo 0";
 	}
 }
-std::string config::readSequenceTitle(std::string type, int num){
+string config::readSequenceTitle(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["sequence"]["title"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["title"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
 	}
 }
-std::string config::readSequenceColor(std::string type, int num){
+string config::readSequenceColor(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type]["sequence"]["colors"];
+		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["colors"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
@@ -225,12 +225,12 @@ void config::performSecurityCheck(string filename){
 	int lineNr = 1;
 	while (getline(file, str))
 	{
-		if (str.find("sudo") != std::string::npos) {
+		if (str.find("sudo") != string::npos) {
 			printf("Line %d: Command requires sudo privileges. \n", lineNr);
 			riskFound = true;
 		}
 		
-		if (str.find("rm ") != std::string::npos) {
+		if (str.find("rm ") != string::npos) {
 			printf("Line %d: Command uses \"rm\". \n", lineNr);
 			riskFound = true;
 		}
