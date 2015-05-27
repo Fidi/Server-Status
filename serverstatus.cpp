@@ -14,9 +14,14 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <pthread.h>
+#include <mutex>
+
+#include "serverstatus.h"
 #include "system_stats.h"
 #include "unix_functions.h"
 #include "config.h"
+#include "communication.h"
 
 using namespace std;
 
@@ -26,7 +31,7 @@ using namespace std;
 //===================================================================================
 
 // Version to check with possibly incompatible config files
-#define VERSION "v0.4-beta"
+#define VERSION "v0.5-beta"
 
 // location where the pid file shall be stored
 #define PID_FILE "/var/run/serverstatus.pid"
@@ -57,8 +62,6 @@ const string PATH[] = {"/usr/local/etc/serverstatus.cfg", "/etc/serverstatus.cfg
 #define SYS_COUNT 6
 const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
-
-
 //===================================================================================
 // END OF CONFIGURATION SECTION
 //===================================================================================
@@ -66,12 +69,23 @@ const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
 
 
-// struct that contains to the interval time to each command
-struct sys_stat_t {
-  vector<int> interval;
-  vector<SystemStats*> stat;
-};
-typedef struct sys_stat_t sys_stat;
+//===================================================================================
+// GLOBAL VARIABLE SECTION
+//===================================================================================
+
+volatile sig_atomic_t loop = 1;
+
+mutex* thread_Mutex;
+pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+
+
+vector<thread_value>* thread_Val;
+
+//===================================================================================
+// END OF GLOBAL VARIABLE SECTION
+//===================================================================================
+
+
 
 
 
@@ -127,9 +141,34 @@ bool pid_running(int pid) {
 
 
 // used for SIGTERM handling
-volatile sig_atomic_t loop = 1;
 void terminate(int signum) {
   loop = 0;
+}
+
+
+// creates a thread that waits on a socket
+void *serverThread(void *port) {
+  std::string* val = reinterpret_cast<std::string*>(port);
+  syslog(LOG_DEBUG, "Server thread started; Listening at port %s", (*val).c_str());
+  
+  int sockfd = bind_socket(*val);
+  if (sockfd == 0) { pthread_exit(0); }
+  
+  string input;
+  while (loop) {
+    try {
+      // wait for input on the socket
+      input = read_from_socket(sockfd);
+      syslog(LOG_NOTICE, "%s", input.c_str());
+      //listen_for_input((*val).c_str(), thread_Mutex, thread_Val);
+    } catch (int e) {
+      
+    }
+  }
+  
+  close(sockfd);
+  
+  pthread_exit(0);
 }
 
 //===================================================================================
@@ -144,6 +183,12 @@ void startDaemon(const string &configFile) {
   // check for root privileges
   if (userID != 0) {
     printf("Error: ServerStatus requires root privileges to work properly.\nTry to run serverstatus as root.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  // check for other instances of serverstatus
+  if (getDaemonStatusRunning(false)) {
+    printf("Error: ServerStatus is already running. \n");
     exit(EXIT_FAILURE);
   }
 
@@ -222,6 +267,19 @@ void startDaemon(const string &configFile) {
   sigaction(SIGTERM, &term, NULL);
   syslog(LOG_DEBUG, "SIGTERM handling added.");
   
+  
+  // handle server/client mode
+  pthread_t thread;
+  pthread_attr_t thread_attr;
+  
+  if (configuration->readApplicationType() == "server") {
+    // server requires an additional thread that handles external input
+    string *port = new string(configuration->readServerPort());
+    
+    pthread_attr_init(&thread_attr);
+    pthread_create(&thread, &thread_attr, serverThread, (void *)port);
+  }
+  
 
   // sys_stat classes
   sys_stat sys;
@@ -273,6 +331,34 @@ void startDaemon(const string &configFile) {
 }
 
 
+void stopDaemon() {
+  // check for root privileges
+  if (getuid() != 0) {
+    printf("Error: root privileges are required to stop ServerStatus.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  // kill process if running
+  if (getDaemonStatusRunning(false)) {
+    string pid = read_pid_file(PID_FILE);
+    if (pid != MAGIC_NUMBER) {
+      if (kill(stoi(pid), SIGTERM) == 0) {
+        // could be killed -> delete pid file (if not already deleted by terminated process)
+        //remove(PID_FILE);
+        printf("ServerStatus [%s] was successfully stopped.\n", pid.c_str());
+      } else {
+        printf("Error: ServerStatus could not be stopped.\n");
+      }
+    } else {
+      printf("ServerStatus is currently not running.");
+    }
+  } else {
+    printf("ServerStatus is currently not running.");
+  }
+}
+
+
+
 
 bool getDaemonStatusRunning(bool output) {
   bool result = false;
@@ -303,35 +389,6 @@ bool getDaemonStatusRunning(bool output) {
   }
   return result;
 }
-
-
-
-void stopDaemon() {
-  // check for root privileges
-  if (getuid() != 0) {
-    printf("Error: root privileges are required to stop ServerStatus.\n\n");
-    exit(EXIT_FAILURE);
-  }
-  
-  // kill process if running
-  if (getDaemonStatusRunning(false)) {
-    string pid = read_pid_file(PID_FILE);
-    if (pid != MAGIC_NUMBER) {
-      if (kill(stoi(pid), SIGTERM) == 0) {
-        // could be killed -> delete pid file (if not already deleted by terminated process)
-        remove(PID_FILE);
-        printf("ServerStatus [%s] was successfully stopped.\n", pid.c_str());
-      } else {
-        printf("Error: ServerStatus could not be stopped.\n");
-      }
-    } else {
-      printf("ServerStatus is currently not running.");
-    }
-  } else {
-    printf("ServerStatus is currently not running.");
-  }
-}
-
 
 
 

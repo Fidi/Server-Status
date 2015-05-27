@@ -63,6 +63,16 @@ string config::readFilepath() {
 	return path;
 }
 
+string config::readApplicationType() {
+	return fConfigfile.lookup("application");
+}
+string config::readServerAddress() {
+	return fConfigfile.lookup("server_address");
+}
+string config::readServerPort() {
+	return fConfigfile.lookup("server_port");
+}
+
 
 
 bool config::readEnabled(string type){

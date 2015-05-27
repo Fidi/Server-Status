@@ -24,6 +24,10 @@ class config
 		// returns the filepath where output files shell be stored.
 		std::string readFilepath();
 		
+		std::string readApplicationType();
+		std::string readServerAddress();
+		std::string readServerPort();
+		
 		// returns basic configuration for one type:
 		bool readEnabled(std::string type);		
 		int readInterval(std::string type);		

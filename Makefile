@@ -9,7 +9,7 @@ endif
 FLAGS = -std=c++11 -Wall -I /usr/local/include
 
 # Input files
-INPUT = system_stats.o unix_functions.o config.o serverstatus.o
+INPUT = system_stats.o unix_functions.o config.o communication.o serverstatus.o
 
 #PATH variable
 EXEPATH = /bin/
@@ -52,8 +52,11 @@ system_stats.o: system_stats.cpp
 unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
 	
+communication.o: communication.cpp
+	$(CC) -c communication.cpp $(FLAGS)
+	
 serverstatus.o: serverstatus.cpp
-	$(CC) -c serverstatus.cpp $(FLAGS)
+	$(CC) -c serverstatus.cpp $(FLAGS) -pthread
 
 clean:
 	/bin/rm -f *.o
