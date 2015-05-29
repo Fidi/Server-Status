@@ -22,7 +22,8 @@ enum _status_t {
   HDD,            // disc temperature (smart required)
   Mount,          // disc size (free / used space)
   Memory,         // RAM status (active, inactive, free, ...)
-  Network         // Network in / out traffic
+  Network,        // Network in / out traffic
+  None
 };
 typedef enum _status_t status;
 
@@ -79,7 +80,8 @@ class SystemStats
 
 
 // get string that should be read from config file
-std::string getSectionFromType(status type);
+std::string getStringFromType(status type);
+status getTypeFromString(std::string type);
 
 
 #endif

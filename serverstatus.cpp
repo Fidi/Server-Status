@@ -75,11 +75,10 @@ const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
 volatile sig_atomic_t loop = 1;
 
-mutex* thread_Mutex;
-pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t thread_Mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-vector<thread_value>* thread_Val;
+// this vector is misused as temporary stack for server-client exchange
+vector<thread_value> thread_Val;
 
 //===================================================================================
 // END OF GLOBAL VARIABLE SECTION
@@ -107,6 +106,12 @@ bool getConfigFilePath(string &output) {
 bool file_exists(const string& name) {
   struct stat buffer;   
   return (stat(name.c_str(), &buffer) == 0); 
+}
+
+string trim(string s) {
+  string x = s;
+  x.erase(remove(x.begin(), x.end(), ' '), x.end());
+  return x;
 }
 
 // reads a pid file without(!) checking its existence 
@@ -146,7 +151,78 @@ void terminate(int signum) {
 }
 
 
-// creates a thread that waits on a socket
+
+void storeValueGlobal(vector<string> value) {
+  // value must at least consist out of a type, a id and one value
+  if (value.size() <= 3) { return; }
+  
+  // store value in global variable (enter mutex area)
+  pthread_mutex_lock(&thread_Mutex);
+  
+  // iterate through all currently stored values and check if this type already exists
+  int k = 0;
+  int id = -1;
+  while ((k < thread_Val.size()) && (id == -1)) {
+    if ((getTypeFromString(value[0]) == thread_Val[k].type) && (value[1] == thread_Val[k].clientID)) {
+      id = k;
+    }
+    k++;
+  }
+  
+  thread_value t;
+  if (id == -1) {
+    // create new entry
+    t.type = getTypeFromString(value[0]);
+    t.clientID = trim(value[1]);
+    for (int i = 2; i < value.size(); i++) {
+      t.value.push_back(atof(trim(value[i]).c_str()));
+    }
+    thread_Val.push_back(t);
+  } else {
+    // override existing entry
+    thread_Val[id].value.clear();
+    for (int i = 2; i < value.size(); i++) {
+      thread_Val[id].value.push_back(atof(trim(value[i]).c_str()));
+    }
+  }
+  
+  // leave mutex
+  pthread_mutex_unlock(&thread_Mutex);
+}
+
+
+thread_value readValueGlobal(status type, string clientID) {
+  
+  pthread_mutex_lock(&thread_Mutex);
+  
+  thread_value s;
+  s.type = type;
+  // s.value stays empty if non is found
+  
+  for (int i = 0; i < thread_Val.size(); i++){
+    if ((type == thread_Val[i].type) && (clientID == thread_Val[i].clientID)) {
+      // copy values into local variable
+      for (int j = 0; j < thread_Val[i].value.size(); j++) {
+        s.value.push_back(thread_Val[i].value[j]);
+      }
+      
+      // delete "read" entry from global variable
+      thread_Val[i].value.clear();
+    }
+  } 
+  
+  pthread_mutex_unlock(&thread_Mutex);
+  
+  // return struct
+  return s;
+}
+
+
+//===================================================================================
+// SERVER THREAD:
+// creates a thread that waits and listens on a socket for external input
+// which is then stored in a global variable (!MUTEX)
+//===================================================================================
 void *serverThread(void *port) {
   std::string* val = reinterpret_cast<std::string*>(port);
   syslog(LOG_DEBUG, "Server thread started; Listening at port %s", (*val).c_str());
@@ -159,8 +235,11 @@ void *serverThread(void *port) {
     try {
       // wait for input on the socket
       input = read_from_socket(sockfd);
-      syslog(LOG_NOTICE, "%s", input.c_str());
-      //listen_for_input((*val).c_str(), thread_Mutex, thread_Val);
+      
+      // string is expected to have form such as "type, id, value1, value2, ..."
+      vector<string> s = split(input, ',');
+      storeValueGlobal(s);
+      
     } catch (int e) {
       
     }
@@ -285,8 +364,8 @@ void startDaemon(const string &configFile) {
   sys_stat sys;
   for (int j = 0; j < SYS_COUNT; j++) {
     // read interval time and create class for each at top defined status type
-    int intervalTime = configuration->readInterval(getSectionFromType(SYS_TYPE[j]).c_str());
-    if (configuration->readEnabled(getSectionFromType(SYS_TYPE[j]).c_str()) == false) {
+    int intervalTime = configuration->readInterval(getStringFromType(SYS_TYPE[j]).c_str());
+    if (configuration->readEnabled(getStringFromType(SYS_TYPE[j]).c_str()) == false) {
       intervalTime = 0;
     }
     sys.interval.push_back(intervalTime);

@@ -6,7 +6,9 @@
 #include <sstream>
 #include <vector>
 #include <syslog.h>
+#include <cstring>
 
+#include "serverstatus.h"
 #include "system_stats.h"
 #include "unix_functions.h"
 #include "config.h"
@@ -16,7 +18,7 @@ using namespace std;
 
 
 // helper function to get a string from the status type
-string getSectionFromType(status type) {
+string getStringFromType(status type) {
   string res;
   switch (type) {
     case CPU: res     = "cpu";     break;
@@ -29,6 +31,25 @@ string getSectionFromType(status type) {
   }
   
   return res;
+}
+
+status getTypeFromString(string type) {
+  if (type == "cpu") { 
+    return CPU; 
+  } else if (type == "load") { 
+    return Load; 
+  } else if (type == "hdd") { 
+    return HDD; 
+  } else if (type == "mount") { 
+    return Mount; 
+  } else if (type == "memory") { 
+    return Memory; 
+  } else if (type == "network") { 
+    return Network; 
+  } else  { 
+    throw "No valid status type found.";
+    return None; 
+  }
 }
 
 
@@ -60,17 +81,30 @@ SystemStats::~SystemStats() {
 void SystemStats::readStatus() {
   // read requested values:
   std::vector<double> newVal;
-  for (int i = 0; i < _element_count; i++) {
-    string cmd = _cmd[i];
-    const char* cmd_output = &getCmdOutput(&cmd[0])[0];
-    newVal.push_back(atof(cmd_output));
+  
+  vector<string> s = split(_cmd[0], ' ');
+  if ((s[0] == "REC") && (s.size() > 1)) {
+    // we are in server receive mode
+    thread_value t = readValueGlobal(_type, s[1]);
+    for (int i = 0; i < t.value.size(); i++) {
+      newVal.push_back(t.value[i]);
+    }
+  } else {
+    // we are in bash command mode
+    for (int i = 0; i < _element_count; i++) {
+        string cmd = _cmd[i];
+        const char* cmd_output = &getCmdOutput(&cmd[0])[0];
+        newVal.push_back(atof(cmd_output));
+    }
   }
   
-  // save values into array
-  setValue(getReadableTime(), newVal);
+  if (newVal.size() > 0) {
+    // save values into array
+    setValue(getReadableTime(), newVal);
 
-  // write json file:
-  writeJSONFile();
+    // write json file:
+    writeJSONFile();
+  }
 }
 
 
@@ -154,7 +188,7 @@ bool SystemStats::loadFromFile(){
 bool SystemStats::loadConfigFile(string configFile) {
 	
   if (FileExists(configFile)) {
-	  _section = getSectionFromType(_type);
+	  _section = getStringFromType(_type);
     config *configuration = new config(configFile);
 
     // read array sizes:
