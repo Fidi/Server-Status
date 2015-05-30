@@ -61,6 +61,9 @@ class SystemStats
 
     bool _delta;
     std::vector<double> _delta_abs_value;
+    
+    std::vector<std::string> _distribution;
+    std::string _port;
 
     std::string _filepath;
     std::string _section;
@@ -73,6 +76,9 @@ class SystemStats
     void initArray();
 
     void setValue(std::string time, std::vector<double> value);
+    
+    bool isReceiving(std::string &sender_ip, std::string &clientID);
+    bool isSending(std::string &receiver_ip, std::string &clientID);
  
     void Inc(int &value);
     void writeJSONFile();

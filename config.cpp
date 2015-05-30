@@ -115,6 +115,16 @@ bool config::readDelta(string type){
 		return false;
 	}
 }
+string config::readDistribution(string type) {
+	try{
+		const Setting &section = fConfigfile.getRoot()[type.c_str()];
+		string distribution;
+		section.lookupValue("distribution", distribution);
+		return distribution;
+	} catch (const SettingNotFoundException &nfound) {
+		return "NONE";
+	}
+}
 
 
 

@@ -24,6 +24,7 @@ class config
 		// returns the filepath where output files shell be stored.
 		std::string readFilepath();
 		
+		// return the distribution details
 		std::string readApplicationType();
 		std::string readServerAddress();
 		std::string readServerPort();
@@ -33,6 +34,7 @@ class config
 		int readInterval(std::string type);		
 		int readElementCount(std::string type);
 		bool readDelta(std::string type);
+		std::string readDistribution(std::string type);
 		
 		// returns JSON header informations for one type:
 		std::string readJSONTitle(std::string type);

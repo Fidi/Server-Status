@@ -12,6 +12,7 @@
 #include "system_stats.h"
 #include "unix_functions.h"
 #include "config.h"
+#include "communication.h"
 
 using namespace std;
 
@@ -82,27 +83,38 @@ void SystemStats::readStatus() {
   // read requested values:
   std::vector<double> newVal;
   
-  vector<string> s = split(_cmd[0], ' ');
-  if ((s[0] == "REC") && (s.size() > 1)) {
+  string ip;
+  string id;
+  
+  // distinguish between server | client | standalone
+  if (isReceiving(ip, id)) {
     // we are in server receive mode
-    thread_value t = readValueGlobal(_type, s[1]);
+    thread_value t = readValueGlobal(_type, id);
     for (int i = 0; i < t.value.size(); i++) {
       newVal.push_back(t.value[i]);
     }
   } else {
     // we are in bash command mode
     for (int i = 0; i < _element_count; i++) {
-        string cmd = _cmd[i];
-        const char* cmd_output = &getCmdOutput(&cmd[0])[0];
-        newVal.push_back(atof(cmd_output));
+      string cmd = _cmd[i];
+      const char* cmd_output = &getCmdOutput(&cmd[0])[0];
+      newVal.push_back(atof(cmd_output));
     }
   }
   
+  // if client mode send string to server
+  if (isSending(ip, id)) {
+    string msg = getStringFromType(_type) + ", " + id;
+    for (int i = 0; i < newVal.size(); i++) {
+      msg = msg + ", " + to_string(newVal[i]);
+    }
+    write_to_socket(ip, _port, msg);
+    newVal.clear();
+  } 
+  
+  // save values into array and write to file
   if (newVal.size() > 0) {
-    // save values into array
     setValue(getReadableTime(), newVal);
-
-    // write json file:
     writeJSONFile();
   }
 }
@@ -211,6 +223,10 @@ bool SystemStats::loadConfigFile(string configFile) {
       _json_type = line;
     }
     
+    string s = configuration->readDistribution(_section);
+    _distribution = split(s, ' ');
+    _port = configuration->readServerPort();
+    
     _delta = configuration->readDelta(_section);
     
     _refresh_interval = configuration->readJSONRefreshInterval(_section);
@@ -274,6 +290,43 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
 
   }
 }
+
+
+
+
+bool SystemStats::isReceiving(string &sender_ip, string &clientID) {
+  // first do some syntax checking
+  if (_distribution.size() != 5) {
+    return false;
+  } else {
+    if ((_distribution[0] != "RECEIVE") || (_distribution[1] != "FROM") || (_distribution[3] != "ID")) {
+      return false;
+    } else {
+      // distribution has correct syntax
+      sender_ip = _distribution[2];
+      clientID = _distribution[4];
+      return true;
+    }
+  }
+}
+
+bool SystemStats::isSending(string &receiver_ip, string &clientID){
+  // first do some syntax checking
+  if (_distribution.size() != 5) {
+    return false;
+  } else {
+    if ((_distribution[0] != "SEND") || (_distribution[1] != "TO") || (_distribution[3] != "ID")) {
+      return false;
+    } else {
+      // distribution has correct syntax
+      receiver_ip = _distribution[2];
+      clientID = _distribution[4];
+      return true;
+    }
+  } 
+}
+
+
 
 
 void SystemStats::Inc(int &value) {
