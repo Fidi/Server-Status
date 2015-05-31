@@ -48,28 +48,28 @@ class SystemStats
     bool loadFromFile();
 
   private:
-    status _type;
-    int _array_size;
+    status type;
+    int array_size;
 
-    data *_list = nullptr;
-    int _list_position;
+    data *list = nullptr;
+    int list_position;
 
-    int _element_count;
-    std::vector<std::string> _cmd;
-    std::vector<std::string> _description;
-    std::vector<std::string> _color;
+    int element_count;
+    std::vector<std::string> cmd;
+    std::vector<std::string> description;
+    std::vector<std::string> color;
 
-    bool _delta;
-    std::vector<double> _delta_abs_value;
+    bool delta;
+    std::vector<double> delta_abs_value;
     
-    std::vector<std::string> _distribution;
-    std::string _port;
+    std::vector<std::string> distribution;
+    std::string port;
 
-    std::string _filepath;
-    std::string _section;
-    json _json_type;
-    int _interval;
-    int _refresh_interval;
+    std::string filepath;
+    std::string section;
+    json json_type;
+    int interval;
+    int refresh_interval;
 
 
     bool loadConfigFile(std::string configFile);

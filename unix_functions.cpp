@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <sys/stat.h>
 
 #include "unix_functions.h"
 #include "system_stats.h"
@@ -53,6 +54,12 @@ void strReplace(std::string& str, const std::string& oldStr, const std::string& 
 }
 
 
+std::string trim(std::string s) {
+  string x = s;
+  x.erase(remove(x.begin(), x.end(), ' '), x.end());
+  return x;
+}
+
 std::string IntToStr(int value) {
   stringstream s;
   s << value;
@@ -60,13 +67,10 @@ std::string IntToStr(int value) {
 }
 
 
-bool FileExists(const string& filename) {
-  if (FILE *file = fopen(filename.c_str(), "r")) {
-    fclose(file);
-    return true;
-  } else {
-    return false;
-  }   
+// function to check if file exists
+bool file_exists(const string& name) {
+  struct stat buffer;   
+  return (stat(name.c_str(), &buffer) == 0); 
 }
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {

@@ -53,9 +53,9 @@ class config
 		void showErrorLog();
 		void performSecurityCheck(std::string filename);
 	private:
-		libconfig::Config fConfigfile;
+		libconfig::Config ConfigFile;
 		
-		std::string fErrorCode;
+		std::string ErrorCode;
 };
 
 

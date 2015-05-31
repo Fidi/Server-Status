@@ -93,7 +93,7 @@ vector<thread_value> thread_Val;
 // writes the path to the config file into the submitted parameter:
 bool getConfigFilePath(string &output) {
   for (int i = 0; i < PATHC; i++) {
-    if (FileExists(PATH[i])) {
+    if (file_exists(PATH[i])) {
       output = PATH[i];
       return true;
     }
@@ -101,18 +101,6 @@ bool getConfigFilePath(string &output) {
   return false;
 }
 
-
-// function to check if file exists
-bool file_exists(const string& name) {
-  struct stat buffer;   
-  return (stat(name.c_str(), &buffer) == 0); 
-}
-
-string trim(string s) {
-  string x = s;
-  x.erase(remove(x.begin(), x.end(), ' '), x.end());
-  return x;
-}
 
 // reads a pid file without(!) checking its existence 
 string read_pid_file(const string& name) {
