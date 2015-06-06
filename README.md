@@ -3,18 +3,23 @@ ServerStatus
 
 Description
 ---
-ServerStatus is a daemon that can be used on UNIX operation systems to create JSON files (and in the future maybe CSV and html files) that contain system status informations. The general idea is to provide these files via http, https, ftp or any other way and let external (remote) devices parse these informations.
+ServerStatus is a daemon that can be used on UNIX operation systems to create JSON files that contain system status informations. The general idea is to provide these files via http, https, ftp or any other way and let remote devices parse these informations.
 
-An example is the iPad app [StatusBoard](http://panic.com/statusboard/) that can print all these files beautifully.
+An example is the iPad app [StatusBoard](http://panic.com/statusboard/) that can print all these files in beautiful charts.
 
 
 Dependencies
 ---
-To build this daemon a C++ compiler is required that supports C++11 (e.g. GCC 4.7 and above, clang 2.9 and above, ...).
-It requires the C++ version of libconfig as well: [Link](http://www.hyperrealm.com/libconfig/libconfig_manual.html)
 
-The daemon might require other programs at runtime. For example to get the hdd temperature on FreeBSD you need a third-party program like `smartmontools`. 
-On other operation systems there might be other programs or commands necessary that need to be installed.
+####Build dependencies
+ 1. Any C++ compiler that supports C++11 (e.g. GCC 4.7 and above, clang 2.9 and above, ...).
+ 2. libconfig [(Link)](http://www.hyperrealm.com/libconfig/libconfig_manual.html)
+ 3. For optional data encryption: OpenSSL [(Link)](https://www.openssl.org)
+
+####Runtime dependencies
+ 1. libconfig
+ 2. OpenSSL (optional encryption)
+ 3. Any other third-party application to monitor an aspect of your server (e.g. `smartmontools` for HDD temperature)
 
 ####Installation####
 If either GCC or clang is installed on your system all you need to do is to run:
@@ -53,6 +58,11 @@ ServerStatus distinguishes between three modes:
 ServerStatus supports encrypted communication between client and server if using OpenSSL. All that is required is a SSL certificate which can be created using the following command:
 
 	openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout serverstatus.pem -out serverstatus.pem
+	
+Specify the path of the certificate and key-file inside the cfg file. 
+
+**Note:**
+If you use the command above both certificate and key-file are the same (serverstatus.pem).
 
 How to use...
 ---

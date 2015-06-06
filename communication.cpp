@@ -128,7 +128,6 @@ void write_to_socket(connection &con, string msg) {
 **
 *****************************************************************/
 
-
 // open a tcp socket to listen to
 int listen_on_tcp(int port) {
   int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -150,7 +149,7 @@ int listen_on_tcp(int port) {
     return 0;
   }
   
-  // receive tcp connection
+  // start basic tcp listening
   if (listen(sockfd, 5) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to listen on socket.");
@@ -159,6 +158,8 @@ int listen_on_tcp(int port) {
   
   return sockfd;
 }
+
+
 
 // connect to a tcp socket
 int connect_to_tcp(int port, string host_ip) {
@@ -175,6 +176,7 @@ int connect_to_tcp(int port, string host_ip) {
   server_addr.sin_port        = htons(port);
   server_addr.sin_addr.s_addr = inet_addr(host_ip.c_str());
   
+  // establish basic tcp connection
   if (connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to connect to socket.");
@@ -183,6 +185,7 @@ int connect_to_tcp(int port, string host_ip) {
   
   return sockfd;
 }
+
 
 
 // get sockaddr, IPv4 or IPv6:
@@ -208,11 +211,9 @@ void *get_in_addr(struct sockaddr *sa) {
       SSL_METHOD *method;
     #endif
 
-    // Register the available ciphers and digests
+    // load/register all ssl stuff
     SSL_library_init();
-    // load & register all cryptos, etc.
     OpenSSL_add_all_algorithms();
-    // Register the error strings for libcrypto & libssl
     SSL_load_error_strings(); 
     
     if (mode == SERVER) {
@@ -252,28 +253,21 @@ void load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
       
       if (SSL_CTX_load_verify_locations(con.ctx, CertFile, KeyFile) != 1) {
         syslog(LOG_ERR, "Communication: Certificate - Verifiy Locations failed.");
-        //return;
       }
       if (SSL_CTX_set_default_verify_paths(con.ctx) != 1) {
         syslog(LOG_ERR, "Communication: Certificate - Verifiy Pathes failed.");
-        //return;
       }
       
-      /* set the local certificate from CertFile */
-      if ( SSL_CTX_use_certificate_file(con.ctx, CertFile, SSL_FILETYPE_PEM) <= 0 )
-      {
+      
+      if (SSL_CTX_use_certificate_file(con.ctx, CertFile, SSL_FILETYPE_PEM) <= 0) {
         syslog(LOG_ERR, "Communication: Certificate - Use Certificate failed.");
         return;
       }
-      /* set the private key from KeyFile (may be the same as CertFile) */
-      if ( SSL_CTX_use_PrivateKey_file(con.ctx, KeyFile, SSL_FILETYPE_PEM) <= 0 )
-      {
+      if (SSL_CTX_use_PrivateKey_file(con.ctx, KeyFile, SSL_FILETYPE_PEM) <= 0) {
         syslog(LOG_ERR, "Communication: Certificate - Use Private Key failed.");
         return;
       }
-      /* verify private key */
-      if ( !SSL_CTX_check_private_key(con.ctx) )
-      {
+      if (!SSL_CTX_check_private_key(con.ctx)){
         syslog(LOG_ERR, "Communication: Certificate - Private Key does not match.");
         return;
       }
@@ -299,7 +293,7 @@ void load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
       X509_free(cert);
     }
     else {
-      syslog(LOG_WARNING, "Communication: No Certificates found.");
+      syslog(LOG_DEBUG, "Communication: No Certificates found.");
     }
   }
   
@@ -375,7 +369,6 @@ string read_tcp_input(int sockfd) {
   // read ssl encrypted incoming traffic
   string read_ssl_input(SSL* ssl) {   
     char buf[1024];
-    //char reply[1024];
     int sd, numbytes;
 
     // do SSL-protocol accept

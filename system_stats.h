@@ -64,6 +64,7 @@ class SystemStats
     
     std::vector<std::string> distribution;
     int port;
+    bool ssl;
 
     std::string filepath;
     std::string section;

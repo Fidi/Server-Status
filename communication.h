@@ -1,7 +1,7 @@
 #ifndef _communication_hpp_
 #define _communication_hpp_
 
-// OpenSSL should always be optional if not installed
+// OpenSSL should always be optional in case it is not installed
 #define __OPENSSL__ true
 
 #include <string.h>

@@ -71,7 +71,7 @@ void SystemStats::readStatus() {
     for (int i = 0; i < newVal.size(); i++) {
       msg = msg + ", " + to_string(newVal[i]);
     }
-    connection c = create_socket(CLIENT, this->port, ip, true);
+    connection c = create_socket(CLIENT, this->port, ip, this->ssl);
     write_to_socket(c, msg);
     destroy_socket(c);
     newVal.clear();
@@ -198,6 +198,7 @@ bool SystemStats::loadConfigFile(string configFile) {
     string s = configuration->readDistribution(this->section);
     this->distribution = split(s, ' ');
     this->port = configuration->readServerPort();
+    this->ssl = configuration->readSSL();
     
     this->delta = configuration->readDelta(this->section);
     
