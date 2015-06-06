@@ -64,29 +64,52 @@ string config::readFilepath() {
 }
 
 string config::readApplicationType() {
-	return this->ConfigFile.getRoot()["distribution"].lookup("application");
+	try {
+		string app_type = this->ConfigFile.getRoot()["distribution"].lookup("application");
+		return app_type;
+	} catch (const SettingNotFoundException &nfound) {
+		return "NONE";
+	}
 }
 string config::readServerAddress() {
-	return this->ConfigFile.getRoot()["distribution"].lookup("server_address");
+	try {
+		string s_addr = this->ConfigFile.getRoot()["distribution"].lookup("server_address");
+		return s_addr;
+	} catch (const SettingNotFoundException &nfound) {
+		return "127.0.0.1";
+	}
 }
 int config::readServerPort() {
 	try {
 		int res = atoi((this->ConfigFile.getRoot()["distribution"].lookup("server_port")).c_str());
 		return res;
-	} catch (int e) {
+	} catch (const SettingNotFoundException &nfound) {
 		return 0;
 	}
 }
 
 
 bool config::readSSL() {
-	return this->ConfigFile.getRoot()["distribution"].lookup("ssl");
+	try {
+		bool ssl = this->ConfigFile.getRoot()["distribution"].lookup("ssl");
+		return ssl;
+	} catch (const SettingNotFoundException &nfound) {
+		return false;
+	}
 }
 string config::readCertFile(){
-	return this->ConfigFile.getRoot()["distribution"].lookup("certificate");
+	try {
+		return this->ConfigFile.getRoot()["distribution"].lookup("certificate");
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
 }
 string config::readKeyFile(){
-	return this->ConfigFile.getRoot()["distribution"].lookup("key");
+	try {
+		return this->ConfigFile.getRoot()["distribution"].lookup("key");
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
 }
 
 

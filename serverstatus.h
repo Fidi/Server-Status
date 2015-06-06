@@ -25,6 +25,7 @@ typedef struct thread_value_t thread_value;
 
 struct server_thread_t {
   int port;
+  bool ssl;
   char* cert_file;
   char* key_file;
 };

@@ -215,8 +215,11 @@ void *serverThread(void *arg) {
   server_thread *s = (server_thread *)arg;
   
   syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
-  connection c = create_socket(SERVER, s->port, "127.0.0.1", true);
-  load_local_certificate(c, (s->cert_file), (s->key_file));
+  connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
+  
+  if ((s->ssl) && (s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
+    load_local_certificate(c, s->cert_file, s->key_file);
+  }
   
   if (c.socket == 0) { pthread_exit(0); }
   
@@ -346,6 +349,7 @@ void startDaemon(const string &configFile) {
    // string *port = new string(configuration->readServerPort());
     server_thread s;
     s.port = configuration->readServerPort();
+    s.ssl = configuration->readSSL();
     string cert = configuration->readCertFile().c_str();
     string key = configuration->readKeyFile().c_str();
     s.cert_file = &cert[0u];
