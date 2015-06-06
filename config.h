@@ -27,7 +27,11 @@ class config
 		// return the distribution details
 		std::string readApplicationType();
 		std::string readServerAddress();
-		std::string readServerPort();
+		int readServerPort();
+		
+		bool readSSL();
+		std::string readCertFile();
+		std::string readKeyFile();
 		
 		// returns basic configuration for one type:
 		bool readEnabled(std::string type);		

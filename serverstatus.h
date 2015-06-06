@@ -8,8 +8,8 @@
 
 // struct that contains to the interval time to each command
 struct sys_stat_t {
-	std::vector<int> interval;
-	std::vector<SystemStats*> stat;
+  std::vector<int> interval;
+  std::vector<SystemStats*> stat;
 };
 typedef struct sys_stat_t sys_stat;
 
@@ -17,12 +17,18 @@ typedef struct sys_stat_t sys_stat;
 
 // struct for client server exchange
 struct thread_value_t {
-	status type;									//what information shall be stored
-	std::string clientID;					//random identification number that has to match
-	std::vector<double> value;   //values to be stored
+  status type;					//what information shall be stored
+  std::string clientID;			//random identification number that has to match
+  std::vector<double> value;		//values to be stored
 };
 typedef struct thread_value_t thread_value;
 
+struct server_thread_t {
+  int port;
+  char* cert_file;
+  char* key_file;
+};
+typedef struct server_thread_t server_thread;
 
 
 void storeValueGlobal(std::vector<std::string> value);

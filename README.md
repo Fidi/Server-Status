@@ -48,6 +48,11 @@ ServerStatus distinguishes between three modes:
  1. If you only use it to monitor one server it can run in "standalone" mode. This will execute commands on your local system and provide these information.
  2. However, if you own multiple servers (or jails) the distributed functions might come handy. ServerStatus can run as "server" which will extend the "standalone" functions with the ability to receive information from other systems
  3. Or ServerStatus can run as "client". This will execute commands on the client and send their output to a "server" instance which will then use these transmitted information. 
+ 
+#### SSL
+ServerStatus supports encrypted communication between client and server if using OpenSSL. All that is required is a SSL certificate which can be created using the following command:
+
+	openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout serverstatus.pem -out serverstatus.pem
 
 How to use...
 ---

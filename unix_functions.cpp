@@ -3,6 +3,10 @@
 #include <sstream>
 #include <vector>
 #include <sys/stat.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "unix_functions.h"
 #include "system_stats.h"
@@ -28,6 +32,25 @@ std::string getCmdOutput(char* cmd) {
   return result;
 }
 
+
+std::string getUsernameFromUID(int uid) {
+  
+    struct passwd* pw;
+
+    if ((pw = getpwuid(uid)) == NULL) {
+       return "unknown [uid " + to_string(uid) + "]";
+    }
+    
+    return string(pw->pw_name) + " [uid " + to_string(uid) + "]";
+    
+    /*
+    printf( "login name  %s\n", pw->pw_name );
+    printf( "user id     %d\n", pw->pw_uid );
+    printf( "group id    %d\n", pw->pw_gid );
+    printf( "home dir    %s\n", pw->pw_dir );
+    printf( "login shell %s\n", pw->pw_shell );
+    */    
+}
 
 
 std::string getReadableTime() {

@@ -211,18 +211,20 @@ thread_value readValueGlobal(status type, string clientID) {
 // creates a thread that waits and listens on a socket for external input
 // which is then stored in a global variable (!MUTEX)
 //===================================================================================
-void *serverThread(void *port) {
-  std::string* val = reinterpret_cast<std::string*>(port);
-  syslog(LOG_DEBUG, "Server thread started; Listening at port %s", (*val).c_str());
+void *serverThread(void *arg) {
+  server_thread *s = (server_thread *)arg;
   
-  int sockfd = bind_socket(*val);
-  if (sockfd == 0) { pthread_exit(0); }
+  syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
+  connection c = create_socket(SERVER, s->port, "127.0.0.1", true);
+  load_local_certificate(c, (s->cert_file), (s->key_file));
+  
+  if (c.socket == 0) { pthread_exit(0); }
   
   string input;
   while (loop) {
     try {
       // wait for input on the socket
-      input = read_from_socket(sockfd);
+      input = read_from_socket(c);
       
       // string is expected to have form such as "type, id, value1, value2, ..."
       vector<string> s = split(input, ',');
@@ -233,10 +235,11 @@ void *serverThread(void *port) {
     }
   }
   
-  close(sockfd);
+  destroy_socket(c);
   
   pthread_exit(0);
 }
+
 
 //===================================================================================
 // THE MAIN MODE:
@@ -272,10 +275,10 @@ void startDaemon(const string &configFile) {
   umask(0);
 
   // using syslog local1 for this daemon
-  //setlogmask(LOG_UPTO (LOG_NOTICE));
+  setlogmask(LOG_UPTO (LOG_NOTICE));
   openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
 
-  syslog(LOG_NOTICE, "Started by User %d", userID);
+  syslog(LOG_NOTICE, "Started by User %s", getUsernameFromUID(userID).c_str());
   
   
   // create pid file
@@ -321,7 +324,6 @@ void startDaemon(const string &configFile) {
   
   // Version check
   if (configuration->readVersion() != VERSION) {
-    throw "Configuration version does not match.";
     syslog (LOG_ERR, "Error: Configuration version does not match.");
     exit(EXIT_FAILURE);
   }
@@ -341,16 +343,25 @@ void startDaemon(const string &configFile) {
   
   if (configuration->readApplicationType() == "server") {
     // server requires an additional thread that handles external input
-    string *port = new string(configuration->readServerPort());
+   // string *port = new string(configuration->readServerPort());
+    server_thread s;
+    s.port = configuration->readServerPort();
+    string cert = configuration->readCertFile().c_str();
+    string key = configuration->readKeyFile().c_str();
+    s.cert_file = &cert[0u];
+    s.key_file = &key[0u];
     
     pthread_attr_init(&thread_attr);
-    pthread_create(&thread, &thread_attr, serverThread, (void *)port);
+    pthread_create(&thread, &thread_attr, serverThread, (void *)&s);
   }
-  
 
+
+
+  
   // sys_stat classes
   sys_stat sys;
   for (int j = 0; j < SYS_COUNT; j++) {
+    
     // read interval time and create class for each at top defined status type
     int intervalTime = configuration->readInterval(getStringFromType(SYS_TYPE[j]).c_str());
     if (configuration->readEnabled(getStringFromType(SYS_TYPE[j]).c_str()) == false) {
@@ -359,8 +370,10 @@ void startDaemon(const string &configFile) {
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
     sys.stat[j]->loadFromFile(); 
+
+    syslog(LOG_DEBUG, "%s (%d) created.", getStringFromType(SYS_TYPE[j]).c_str(), j);
   }
-  syslog(LOG_DEBUG, "sys_stat objects created.");
+  syslog(LOG_DEBUG, "All sys_stat objects created.");
 		
 
   // the loop fires once every LOOP_TIME seconds
@@ -417,10 +430,10 @@ void stopDaemon() {
         printf("Error: ServerStatus could not be stopped.\n");
       }
     } else {
-      printf("ServerStatus is currently not running.");
+      printf("ServerStatus is currently not running. \n");
     }
   } else {
-    printf("ServerStatus is currently not running.");
+    printf("ServerStatus is currently not running. \n");
   }
 }
 

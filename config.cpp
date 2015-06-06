@@ -64,15 +64,30 @@ string config::readFilepath() {
 }
 
 string config::readApplicationType() {
-	return this->ConfigFile.lookup("application");
+	return this->ConfigFile.getRoot()["distribution"].lookup("application");
 }
 string config::readServerAddress() {
-	return this->ConfigFile.lookup("server_address");
+	return this->ConfigFile.getRoot()["distribution"].lookup("server_address");
 }
-string config::readServerPort() {
-	return this->ConfigFile.lookup("server_port");
+int config::readServerPort() {
+	try {
+		int res = atoi((this->ConfigFile.getRoot()["distribution"].lookup("server_port")).c_str());
+		return res;
+	} catch (int e) {
+		return 0;
+	}
 }
 
+
+bool config::readSSL() {
+	return this->ConfigFile.getRoot()["distribution"].lookup("ssl");
+}
+string config::readCertFile(){
+	return this->ConfigFile.getRoot()["distribution"].lookup("certificate");
+}
+string config::readKeyFile(){
+	return this->ConfigFile.getRoot()["distribution"].lookup("key");
+}
 
 
 bool config::readEnabled(string type){

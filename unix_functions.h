@@ -6,6 +6,9 @@
 // execute shell command and return shell output
 std::string getCmdOutput(char* cmd);
 
+
+std::string getUsernameFromUID(int uid);
+
 // convert unix time to format HH:MM
 std::string getReadableTime();
 

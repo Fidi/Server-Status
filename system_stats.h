@@ -63,7 +63,7 @@ class SystemStats
     std::vector<double> delta_abs_value;
     
     std::vector<std::string> distribution;
-    std::string port;
+    int port;
 
     std::string filepath;
     std::string section;

@@ -41,7 +41,7 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -L /usr/local/lib
+	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -lssl -lcrypto -L /usr/local/lib
 	
 config.o: config.cpp
 	$(CC) -c config.cpp -stdlib=libc++ $(FLAGS)
@@ -53,7 +53,7 @@ unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
 	
 communication.o: communication.cpp
-	$(CC) -c communication.cpp $(FLAGS)
+	$(CC) -c communication.cpp $(FLAGS) -Wno-deprecated-declarations
 	
 serverstatus.o: serverstatus.cpp
 	$(CC) -c serverstatus.cpp $(FLAGS) -pthread

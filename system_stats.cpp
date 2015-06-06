@@ -71,7 +71,9 @@ void SystemStats::readStatus() {
     for (int i = 0; i < newVal.size(); i++) {
       msg = msg + ", " + to_string(newVal[i]);
     }
-    write_to_socket(ip, this->port, msg);
+    connection c = create_socket(CLIENT, this->port, ip, true);
+    write_to_socket(c, msg);
+    destroy_socket(c);
     newVal.clear();
   } 
   
@@ -85,6 +87,13 @@ void SystemStats::readStatus() {
 
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
+  
+  // check for application mode and file existance 
+  if ((this->distribution[0] == "SEND") || (!file_exists(this->filepath + this->section + ".json"))) {
+    syslog(LOG_DEBUG, "Could not load existing json files.");
+    return false;
+  }
+  
   std::vector<string> lines;
   string pattern0 = "{ \"title\" : ";
   string pattern1 = "\"absolute\": \"";
