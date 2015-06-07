@@ -66,7 +66,9 @@ string config::readFilepath() {
 
 string config::readApplicationType() {
 	try {
-		string app_type = this->ConfigFile.getRoot()["distribution"].lookup("application");
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		string app_type;
+		section.lookupValue("application", app_type);
 		return app_type;
 	} catch (const SettingNotFoundException &nfound) {
 		return "NONE";
@@ -74,7 +76,9 @@ string config::readApplicationType() {
 }
 string config::readServerAddress() {
 	try {
-		string s_addr = this->ConfigFile.getRoot()["distribution"].lookup("server_address");
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		string s_addr;
+		section.lookupValue("server_adress", s_addr);
 		return s_addr;
 	} catch (const SettingNotFoundException &nfound) {
 		return "127.0.0.1";
@@ -82,8 +86,10 @@ string config::readServerAddress() {
 }
 int config::readServerPort() {
 	try {
-		int res = atoi((this->ConfigFile.getRoot()["distribution"].lookup("server_port")).c_str());
-		return res;
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		string s_port;
+		section.lookupValue("server_port", s_port);
+		return atoi(s_port.c_str());
 	} catch (const SettingNotFoundException &nfound) {
 		return 0;
 	}
@@ -92,7 +98,9 @@ int config::readServerPort() {
 
 bool config::readSSL() {
 	try {
-		bool ssl = this->ConfigFile.getRoot()["distribution"].lookup("ssl");
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		bool ssl;
+		section.lookupValue("ssl", ssl);
 		return ssl;
 	} catch (const SettingNotFoundException &nfound) {
 		return false;
@@ -100,14 +108,20 @@ bool config::readSSL() {
 }
 string config::readCertFile(){
 	try {
-		return this->ConfigFile.getRoot()["distribution"].lookup("certificate");
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		string cert;
+		section.lookupValue("certificate", cert);
+		return cert;
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
 	}
 }
 string config::readKeyFile(){
 	try {
-		return this->ConfigFile.getRoot()["distribution"].lookup("key");
+		const Setting &section = this->ConfigFile.getRoot()["distribution"];
+		string key;
+		section.lookupValue("key", key);
+		return key;
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
 	}
