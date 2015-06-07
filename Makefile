@@ -41,10 +41,10 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -lssl -lcrypto -L /usr/local/lib
+	$(CC) $(INPUT) -o $(OUTPUT) $(FLAGS) -pthread -lconfig++ -lssl -lcrypto -L /usr/local/lib
 	
 config.o: config.cpp
-	$(CC) -c config.cpp -stdlib=libc++ $(FLAGS)
+	$(CC) -c config.cpp $(FLAGS)
 	
 system_stats.o: system_stats.cpp
 	$(CC) -c system_stats.cpp $(FLAGS)

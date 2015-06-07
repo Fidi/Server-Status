@@ -145,14 +145,14 @@ int config::readElementCount(string type){
 	}
 }
 bool config::readDelta(string type){
+	bool delta = false;
 	try {
 		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
-		bool delta;
 		section.lookupValue("delta", delta);
-		return delta;
 	} catch (const SettingNotFoundException &nfound) {
 		return false;
 	}
+	return delta;
 }
 string config::readInput(string type) {
 	try{
