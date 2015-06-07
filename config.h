@@ -38,7 +38,8 @@ class config
 		int readInterval(std::string type);		
 		int readElementCount(std::string type);
 		bool readDelta(std::string type);
-		std::string readDistribution(std::string type);
+		std::string readInput(std::string type);
+		std::string readOutput(std::string type);
 		
 		// returns JSON header informations for one type:
 		std::string readJSONTitle(std::string type);
