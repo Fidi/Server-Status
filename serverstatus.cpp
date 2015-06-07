@@ -14,9 +14,14 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include <pthread.h>
+#include <mutex>
+
+#include "serverstatus.h"
 #include "system_stats.h"
 #include "unix_functions.h"
 #include "config.h"
+#include "communication.h"
 
 using namespace std;
 
@@ -26,7 +31,7 @@ using namespace std;
 //===================================================================================
 
 // Version to check with possibly incompatible config files
-#define VERSION "v0.4-beta"
+#define VERSION "v0.5-beta"
 
 // location where the pid file shall be stored
 #define PID_FILE "/var/run/serverstatus.pid"
@@ -57,8 +62,6 @@ const string PATH[] = {"/usr/local/etc/serverstatus.cfg", "/etc/serverstatus.cfg
 #define SYS_COUNT 6
 const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
-
-
 //===================================================================================
 // END OF CONFIGURATION SECTION
 //===================================================================================
@@ -66,12 +69,22 @@ const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
 
 
-// struct that contains to the interval time to each command
-struct sys_stat_t {
-  vector<int> interval;
-  vector<SystemStats*> stat;
-};
-typedef struct sys_stat_t sys_stat;
+//===================================================================================
+// GLOBAL VARIABLE SECTION
+//===================================================================================
+
+volatile sig_atomic_t loop = 1;
+
+pthread_mutex_t thread_Mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// this vector is misused as temporary stack for server-client exchange
+vector<thread_value> thread_Val;
+
+//===================================================================================
+// END OF GLOBAL VARIABLE SECTION
+//===================================================================================
+
+
 
 
 
@@ -80,7 +93,7 @@ typedef struct sys_stat_t sys_stat;
 // writes the path to the config file into the submitted parameter:
 bool getConfigFilePath(string &output) {
   for (int i = 0; i < PATHC; i++) {
-    if (FileExists(PATH[i])) {
+    if (file_exists(PATH[i])) {
       output = PATH[i];
       return true;
     }
@@ -88,12 +101,6 @@ bool getConfigFilePath(string &output) {
   return false;
 }
 
-
-// function to check if file exists
-bool file_exists(const string& name) {
-  struct stat buffer;   
-  return (stat(name.c_str(), &buffer) == 0); 
-}
 
 // reads a pid file without(!) checking its existence 
 string read_pid_file(const string& name) {
@@ -127,10 +134,115 @@ bool pid_running(int pid) {
 
 
 // used for SIGTERM handling
-volatile sig_atomic_t loop = 1;
 void terminate(int signum) {
   loop = 0;
 }
+
+
+
+void storeValueGlobal(vector<string> value) {
+  // value must at least consist out of a type, a id and one value
+  if (value.size() <= 3) { return; }
+  
+  // store value in global variable (enter mutex area)
+  pthread_mutex_lock(&thread_Mutex);
+  
+  // iterate through all currently stored values and check if this type already exists
+  int k = 0;
+  int id = -1;
+  while ((k < thread_Val.size()) && (id == -1)) {
+    if ((getTypeFromString(value[0]) == thread_Val[k].type) && (value[1] == thread_Val[k].clientID)) {
+      id = k;
+    }
+    k++;
+  }
+  
+  thread_value t;
+  if (id == -1) {
+    // create new entry
+    t.type = getTypeFromString(value[0]);
+    t.clientID = trim(value[1]);
+    for (int i = 2; i < value.size(); i++) {
+      t.value.push_back(atof(trim(value[i]).c_str()));
+    }
+    thread_Val.push_back(t);
+  } else {
+    // override existing entry
+    thread_Val[id].value.clear();
+    for (int i = 2; i < value.size(); i++) {
+      thread_Val[id].value.push_back(atof(trim(value[i]).c_str()));
+    }
+  }
+  
+  // leave mutex
+  pthread_mutex_unlock(&thread_Mutex);
+}
+
+
+thread_value readValueGlobal(status type, string clientID) {
+  
+  pthread_mutex_lock(&thread_Mutex);
+  
+  thread_value s;
+  s.type = type;
+  // s.value stays empty if non is found
+  
+  for (int i = 0; i < thread_Val.size(); i++){
+    if ((type == thread_Val[i].type) && (clientID == thread_Val[i].clientID)) {
+      // copy values into local variable
+      for (int j = 0; j < thread_Val[i].value.size(); j++) {
+        s.value.push_back(thread_Val[i].value[j]);
+      }
+      
+      // delete "read" entry from global variable
+      thread_Val[i].value.clear();
+    }
+  } 
+  
+  pthread_mutex_unlock(&thread_Mutex);
+  
+  // return struct
+  return s;
+}
+
+
+//===================================================================================
+// SERVER THREAD:
+// creates a thread that waits and listens on a socket for external input
+// which is then stored in a global variable (!MUTEX)
+//===================================================================================
+void *serverThread(void *arg) {
+  server_thread *s = (server_thread *)arg;
+  
+  syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
+  connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
+  
+  if ((s->ssl) && (s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
+    load_local_certificate(c, s->cert_file, s->key_file);
+  }
+  
+  if (c.socket == 0) { pthread_exit(0); }
+  
+  string input;
+  while (loop) {
+    try {
+      // wait for input on the socket
+      input = read_from_socket(c);
+      
+      // string is expected to have form such as "type, id, value1, value2, ..."
+      vector<string> s = split(input, ',');
+      storeValueGlobal(s);
+      
+    } catch (int e) {
+      
+    }
+  }
+  
+  destroy_socket(c);
+  
+  pthread_exit(0);
+}
+
 
 //===================================================================================
 // THE MAIN MODE:
@@ -144,6 +256,12 @@ void startDaemon(const string &configFile) {
   // check for root privileges
   if (userID != 0) {
     printf("Error: ServerStatus requires root privileges to work properly.\nTry to run serverstatus as root.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  // check for other instances of serverstatus
+  if (getDaemonStatusRunning(false)) {
+    printf("Error: ServerStatus is already running. \n");
     exit(EXIT_FAILURE);
   }
 
@@ -160,10 +278,10 @@ void startDaemon(const string &configFile) {
   umask(0);
 
   // using syslog local1 for this daemon
-  //setlogmask(LOG_UPTO (LOG_NOTICE));
+  setlogmask(LOG_UPTO (LOG_NOTICE));
   openlog("ServerStatus", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
 
-  syslog(LOG_NOTICE, "Started by User %d", userID);
+  syslog(LOG_NOTICE, "Started by User %s", getUsernameFromUID(userID).c_str());
   
   
   // create pid file
@@ -209,7 +327,6 @@ void startDaemon(const string &configFile) {
   
   // Version check
   if (configuration->readVersion() != VERSION) {
-    throw "Configuration version does not match.";
     syslog (LOG_ERR, "Error: Configuration version does not match.");
     exit(EXIT_FAILURE);
   }
@@ -222,20 +339,45 @@ void startDaemon(const string &configFile) {
   sigaction(SIGTERM, &term, NULL);
   syslog(LOG_DEBUG, "SIGTERM handling added.");
   
+  
+  // handle server/client mode
+  pthread_t thread;
+  pthread_attr_t thread_attr;
+  
+  if (configuration->readApplicationType() == "server") {
+    // server requires an additional thread that handles external input
+   // string *port = new string(configuration->readServerPort());
+    server_thread s;
+    s.port = configuration->readServerPort();
+    s.ssl = configuration->readSSL();
+    string cert = configuration->readCertFile().c_str();
+    string key = configuration->readKeyFile().c_str();
+    s.cert_file = &cert[0u];
+    s.key_file = &key[0u];
+    
+    pthread_attr_init(&thread_attr);
+    pthread_create(&thread, &thread_attr, serverThread, (void *)&s);
+  }
 
+
+
+  
   // sys_stat classes
   sys_stat sys;
   for (int j = 0; j < SYS_COUNT; j++) {
+    
     // read interval time and create class for each at top defined status type
-    int intervalTime = configuration->readInterval(getSectionFromType(SYS_TYPE[j]).c_str());
-    if (configuration->readEnabled(getSectionFromType(SYS_TYPE[j]).c_str()) == false) {
+    int intervalTime = configuration->readInterval(getStringFromType(SYS_TYPE[j]).c_str());
+    if (configuration->readEnabled(getStringFromType(SYS_TYPE[j]).c_str()) == false) {
       intervalTime = 0;
     }
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
     sys.stat[j]->loadFromFile(); 
+
+    syslog(LOG_DEBUG, "%s (%d) created.", getStringFromType(SYS_TYPE[j]).c_str(), j);
   }
-  syslog(LOG_DEBUG, "sys_stat objects created.");
+  syslog(LOG_DEBUG, "All sys_stat objects created.");
 		
 
   // the loop fires once every LOOP_TIME seconds
@@ -273,6 +415,34 @@ void startDaemon(const string &configFile) {
 }
 
 
+void stopDaemon() {
+  // check for root privileges
+  if (getuid() != 0) {
+    printf("Error: root privileges are required to stop ServerStatus.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  
+  // kill process if running
+  if (getDaemonStatusRunning(false)) {
+    string pid = read_pid_file(PID_FILE);
+    if (pid != MAGIC_NUMBER) {
+      if (kill(stoi(pid), SIGTERM) == 0) {
+        // could be killed -> delete pid file (if not already deleted by terminated process)
+        //remove(PID_FILE);
+        printf("ServerStatus [%s] was successfully stopped.\n", pid.c_str());
+      } else {
+        printf("Error: ServerStatus could not be stopped.\n");
+      }
+    } else {
+      printf("ServerStatus is currently not running. \n");
+    }
+  } else {
+    printf("ServerStatus is currently not running. \n");
+  }
+}
+
+
+
 
 bool getDaemonStatusRunning(bool output) {
   bool result = false;
@@ -303,35 +473,6 @@ bool getDaemonStatusRunning(bool output) {
   }
   return result;
 }
-
-
-
-void stopDaemon() {
-  // check for root privileges
-  if (getuid() != 0) {
-    printf("Error: root privileges are required to stop ServerStatus.\n\n");
-    exit(EXIT_FAILURE);
-  }
-  
-  // kill process if running
-  if (getDaemonStatusRunning(false)) {
-    string pid = read_pid_file(PID_FILE);
-    if (pid != MAGIC_NUMBER) {
-      if (kill(stoi(pid), SIGTERM) == 0) {
-        // could be killed -> delete pid file (if not already deleted by terminated process)
-        remove(PID_FILE);
-        printf("ServerStatus [%s] was successfully stopped.\n", pid.c_str());
-      } else {
-        printf("Error: ServerStatus could not be stopped.\n");
-      }
-    } else {
-      printf("ServerStatus is currently not running.");
-    }
-  } else {
-    printf("ServerStatus is currently not running.");
-  }
-}
-
 
 
 

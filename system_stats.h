@@ -22,7 +22,8 @@ enum _status_t {
   HDD,            // disc temperature (smart required)
   Mount,          // disc size (free / used space)
   Memory,         // RAM status (active, inactive, free, ...)
-  Network         // Network in / out traffic
+  Network,        // Network in / out traffic
+  None
 };
 typedef enum _status_t status;
 
@@ -47,31 +48,38 @@ class SystemStats
     bool loadFromFile();
 
   private:
-    status _type;
-    int _array_size;
+    status type;
+    int array_size;
 
-    data *_list = nullptr;
-    int _list_position;
+    data *list = nullptr;
+    int list_position;
 
-    int _element_count;
-    std::vector<std::string> _cmd;
-    std::vector<std::string> _description;
-    std::vector<std::string> _color;
+    int element_count;
+    std::vector<std::string> cmd;
+    std::vector<std::string> description;
+    std::vector<std::string> color;
 
-    bool _delta;
-    std::vector<double> _delta_abs_value;
+    bool delta;
+    std::vector<double> delta_abs_value;
+    
+    std::vector<std::string> distribution;
+    int port;
+    bool ssl;
 
-    std::string _filepath;
-    std::string _section;
-    json _json_type;
-    int _interval;
-    int _refresh_interval;
+    std::string filepath;
+    std::string section;
+    json json_type;
+    int interval;
+    int refresh_interval;
 
 
     bool loadConfigFile(std::string configFile);
     void initArray();
 
     void setValue(std::string time, std::vector<double> value);
+    
+    bool isReceiving(std::string &sender_ip, std::string &clientID);
+    bool isSending(std::string &receiver_ip, std::string &clientID);
  
     void Inc(int &value);
     void writeJSONFile();
@@ -79,7 +87,8 @@ class SystemStats
 
 
 // get string that should be read from config file
-std::string getSectionFromType(status type);
+std::string getStringFromType(status type);
+status getTypeFromString(std::string type);
 
 
 #endif

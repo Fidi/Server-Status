@@ -17,7 +17,7 @@ using namespace libconfig;
 **
 *****************************************************************/
 config::config(string filename) {
-	fErrorCode = "";
+	this->ErrorCode = "";
 	if (!loadConfig(filename)){
 		printf("Error loading configuration file. \n\n");		
 	}
@@ -33,19 +33,19 @@ config::~config() {
 bool config::loadConfig(string filename) {
 	try
 	{
-		fConfigfile.readFile(filename.c_str());
+		this->ConfigFile.readFile(filename.c_str());
 		return true;
 	}
 	catch(const FileIOException &fioex)
 	{
 		// I/O Error
-		fErrorCode += string("I/O error while reading file. \n");
+		this->ErrorCode += string("I/O error while reading file. \n");
 		return false;;
 	}
 	catch(const ParseException &pex)
 	{
 		// Parse Error at 
-		fErrorCode += string(pex.getFile()) + string(":") + string(to_string(pex.getLine())) + string(" - ") + string(pex.getError()) + string("\n");
+		this->ErrorCode += string(pex.getFile()) + string(":") + string(to_string(pex.getLine())) + string(" - ") + string(pex.getError()) + string("\n");
 		return false;
 	}
 }
@@ -53,21 +53,69 @@ bool config::loadConfig(string filename) {
 
 
 string config::readVersion() {
-	return fConfigfile.lookup("version");
+	return this->ConfigFile.lookup("version");
 }
 string config::readFilepath() {
-	string path = fConfigfile.lookup("filepath");
+	string path = this->ConfigFile.lookup("filepath");
 	if(path.at(path.length()-1) != '/'){
 		path += "/";
 	}
 	return path;
 }
 
+string config::readApplicationType() {
+	try {
+		string app_type = this->ConfigFile.getRoot()["distribution"].lookup("application");
+		return app_type;
+	} catch (const SettingNotFoundException &nfound) {
+		return "NONE";
+	}
+}
+string config::readServerAddress() {
+	try {
+		string s_addr = this->ConfigFile.getRoot()["distribution"].lookup("server_address");
+		return s_addr;
+	} catch (const SettingNotFoundException &nfound) {
+		return "127.0.0.1";
+	}
+}
+int config::readServerPort() {
+	try {
+		int res = atoi((this->ConfigFile.getRoot()["distribution"].lookup("server_port")).c_str());
+		return res;
+	} catch (const SettingNotFoundException &nfound) {
+		return 0;
+	}
+}
+
+
+bool config::readSSL() {
+	try {
+		bool ssl = this->ConfigFile.getRoot()["distribution"].lookup("ssl");
+		return ssl;
+	} catch (const SettingNotFoundException &nfound) {
+		return false;
+	}
+}
+string config::readCertFile(){
+	try {
+		return this->ConfigFile.getRoot()["distribution"].lookup("certificate");
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
+}
+string config::readKeyFile(){
+	try {
+		return this->ConfigFile.getRoot()["distribution"].lookup("key");
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
+}
 
 
 bool config::readEnabled(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
 		bool enabled;
 		section.lookupValue("enabled", enabled);
 		return enabled;
@@ -77,7 +125,7 @@ bool config::readEnabled(string type){
 }		
 int config::readInterval(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
 		int interval;
 		section.lookupValue("interval", interval);
 		return interval;
@@ -87,7 +135,7 @@ int config::readInterval(string type){
 }	
 int config::readElementCount(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
 		int element;
 		section.lookupValue("elements", element);
 		return element;
@@ -97,7 +145,7 @@ int config::readElementCount(string type){
 }
 bool config::readDelta(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
 		bool delta;
 		section.lookupValue("delta", delta);
 		return delta;
@@ -105,12 +153,22 @@ bool config::readDelta(string type){
 		return false;
 	}
 }
+string config::readDistribution(string type) {
+	try{
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
+		string distribution;
+		section.lookupValue("distribution", distribution);
+		return distribution;
+	} catch (const SettingNotFoundException &nfound) {
+		return "NONE";
+	}
+}
 
 
 
 string config::readJSONTitle(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["header"];
 		string title;
 		section.lookupValue("title", title);
 		return title;
@@ -120,7 +178,7 @@ string config::readJSONTitle(string type){
 }
 string config::readJSONType(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["header"];
 		string jtype;
 		section.lookupValue("type", jtype);
 		return jtype;
@@ -130,7 +188,7 @@ string config::readJSONType(string type){
 }
 int config::readJSONRefreshInterval(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["header"];
 		int refresh;
 		section.lookupValue("refreshEveryNSeconds", refresh);
 		return refresh;
@@ -140,7 +198,7 @@ int config::readJSONRefreshInterval(string type){
 }
 int config::readJSONyAxisMinimum(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"]["yAxis"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["header"]["yAxis"];
 		int yMin;
 		section.lookupValue("minValue", yMin);
 		return yMin;
@@ -150,7 +208,7 @@ int config::readJSONyAxisMinimum(string type){
 }
 int config::readJSONyAxisMaximum(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["header"]["yAxis"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["header"]["yAxis"];
 		int yMax;
 		section.lookupValue("maxValue", yMax);
 		return yMax;
@@ -164,7 +222,7 @@ int config::readJSONyAxisMaximum(string type){
 
 int config::readSequenceCount(string type){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["cmd"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["sequence"]["cmd"];
 		return section.getLength();
 	} catch (const SettingNotFoundException &nfound) {
 		return 0;
@@ -172,7 +230,7 @@ int config::readSequenceCount(string type){
 }
 string config::readSequenceCommand(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["cmd"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["sequence"]["cmd"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "echo 0";
@@ -180,7 +238,7 @@ string config::readSequenceCommand(string type, int num){
 }
 string config::readSequenceTitle(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["title"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["sequence"]["title"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
@@ -188,7 +246,7 @@ string config::readSequenceTitle(string type, int num){
 }
 string config::readSequenceColor(string type, int num){
 	try {
-		const Setting &section = fConfigfile.getRoot()[type.c_str()]["sequence"]["colors"];
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["sequence"]["colors"];
 		return section[num];
 	} catch (const SettingNotFoundException &nfound) {
 		return "-";
@@ -200,8 +258,8 @@ string config::readSequenceColor(string type, int num){
 
 void config::showErrorLog(){
 	printf("Syntax and I/O check: ");
-	if (fErrorCode != "") {
-		printf("%s \n", fErrorCode.c_str());
+	if (this->ErrorCode != "") {
+		printf("%s \n", this->ErrorCode.c_str());
 	} else {
 		printf("No errors found. \n\n");
 	}

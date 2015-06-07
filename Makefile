@@ -9,7 +9,7 @@ endif
 FLAGS = -std=c++11 -Wall -I /usr/local/include
 
 # Input files
-INPUT = system_stats.o unix_functions.o config.o serverstatus.o
+INPUT = system_stats.o unix_functions.o config.o communication.o serverstatus.o
 
 #PATH variable
 EXEPATH = /bin/
@@ -41,7 +41,7 @@ install: $(OUTPUT)
 	
 $(OUTPUT): $(INPUT)
 	@echo "All dependencies successfully built."
-	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -L /usr/local/lib
+	$(CC) $(INPUT) -o $(OUTPUT) -lconfig++ -stdlib=libc++ $(FLAGS) -lssl -lcrypto -L /usr/local/lib
 	
 config.o: config.cpp
 	$(CC) -c config.cpp -stdlib=libc++ $(FLAGS)
@@ -52,8 +52,11 @@ system_stats.o: system_stats.cpp
 unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
 	
+communication.o: communication.cpp
+	$(CC) -c communication.cpp $(FLAGS) -Wno-deprecated-declarations
+	
 serverstatus.o: serverstatus.cpp
-	$(CC) -c serverstatus.cpp $(FLAGS)
+	$(CC) -c serverstatus.cpp $(FLAGS) -pthread
 
 clean:
 	/bin/rm -f *.o

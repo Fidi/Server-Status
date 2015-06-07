@@ -24,11 +24,21 @@ class config
 		// returns the filepath where output files shell be stored.
 		std::string readFilepath();
 		
+		// return the distribution details
+		std::string readApplicationType();
+		std::string readServerAddress();
+		int readServerPort();
+		
+		bool readSSL();
+		std::string readCertFile();
+		std::string readKeyFile();
+		
 		// returns basic configuration for one type:
 		bool readEnabled(std::string type);		
 		int readInterval(std::string type);		
 		int readElementCount(std::string type);
 		bool readDelta(std::string type);
+		std::string readDistribution(std::string type);
 		
 		// returns JSON header informations for one type:
 		std::string readJSONTitle(std::string type);
@@ -47,9 +57,9 @@ class config
 		void showErrorLog();
 		void performSecurityCheck(std::string filename);
 	private:
-		libconfig::Config fConfigfile;
+		libconfig::Config ConfigFile;
 		
-		std::string fErrorCode;
+		std::string ErrorCode;
 };
 
 
