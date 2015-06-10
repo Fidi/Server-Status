@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <algorithm>
 
 #include "unix_functions.h"
-#include "system_stats.h"
 
 using namespace std;
 

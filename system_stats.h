@@ -38,12 +38,42 @@ enum _json_t {
 typedef enum _json_t json;
 
 
+
+enum _data_output_t {
+  JSON,
+  OUT_SOCKET,
+  OUT_NONE
+};
+typedef enum _data_output_t data_output;
+
+enum _data_input_t {
+  CMD,
+  IN_SOCKET,
+  IN_NONE
+};
+typedef enum _data_input_t data_input;
+
+struct _socket_details_t {
+  int port;
+  std::string host_ip;
+  bool ssl;
+};
+typedef struct _socket_details_t socket_details;
+
+
+
 class SystemStats
 {
   public:
     SystemStats(status type, std::string configFile);
     ~SystemStats();
-
+    
+    data_input input;
+    socket_details input_details;
+    
+    data_output output;
+    socket_details output_details;
+    
     void readStatus();
     bool loadFromFile();
 
@@ -62,7 +92,8 @@ class SystemStats
     bool delta;
     std::vector<double> delta_abs_value;
     
-    std::vector<std::string> distribution;
+    std::vector<std::string> _input_details;
+    std::vector<std::string> _output_details;
     int port;
     bool ssl;
 

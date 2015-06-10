@@ -31,7 +31,7 @@ using namespace std;
 //===================================================================================
 
 // Version to check with possibly incompatible config files
-#define VERSION "v0.5-beta"
+#define VERSION "v0.5-beta.2"
 
 // location where the pid file shall be stored
 #define PID_FILE "/var/run/serverstatus.pid"
@@ -53,7 +53,6 @@ using namespace std;
 
 
 // Per default ServerStatus will look for a configuration file at these positions:
-#define PATHC 2
 const string PATH[] = {"/usr/local/etc/serverstatus.cfg", "/etc/serverstatus.cfg"};
 
 
@@ -73,6 +72,7 @@ const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 // GLOBAL VARIABLE SECTION
 //===================================================================================
 
+// this variable defines when all the loops (main loop, thread loops) shall terminate
 volatile sig_atomic_t loop = 1;
 
 pthread_mutex_t thread_Mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -92,7 +92,7 @@ vector<thread_value> thread_Val;
 
 // writes the path to the config file into the submitted parameter:
 bool getConfigFilePath(string &output) {
-  for (int i = 0; i < PATHC; i++) {
+  for (int i = 0; i < sizeof(PATH)/sizeof(PATH[0]); i++) {
     if (file_exists(PATH[i])) {
       output = PATH[i];
       return true;
@@ -228,6 +228,7 @@ void *serverThread(void *arg) {
     try {
       // wait for input on the socket
       input = read_from_socket(c);
+      syslog(LOG_DEBUG, "%s", input.c_str());
       
       // string is expected to have form such as "type, id, value1, value2, ..."
       vector<string> s = split(input, ',');
@@ -371,9 +372,11 @@ void startDaemon(const string &configFile) {
     if (configuration->readEnabled(getStringFromType(SYS_TYPE[j]).c_str()) == false) {
       intervalTime = 0;
     }
+    
     sys.interval.push_back(intervalTime);
     sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
-    sys.stat[j]->loadFromFile(); 
+    // TODO: bug persists
+    //sys.stat[j]->loadFromFile();
 
     syslog(LOG_DEBUG, "%s (%d) created.", getStringFromType(SYS_TYPE[j]).c_str(), j);
   }

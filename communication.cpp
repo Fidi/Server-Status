@@ -22,6 +22,8 @@
   #include "openssl/err.h"
 #endif
 
+// number of queued connection requests
+#define BACKLOG 10
 
 #define MAXBUFLEN 100
 
@@ -130,27 +132,43 @@ void write_to_socket(connection &con, string msg) {
 
 // open a tcp socket to listen to
 int listen_on_tcp(int port) {
-  int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+  int status;
+  struct addrinfo hints, *servinfo, *l;
 
-  if (sockfd == -1) {
-    syslog(LOG_ERR, "Communication: Creating socket failed. %s", strerror(errno));
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
+
+  if ((status = getaddrinfo(NULL, to_string(port).c_str(), &hints, &servinfo)) != 0) {
+    syslog(LOG_ERR, "Communication: getaddrinfo failed: %s", gai_strerror(status));
     return 0;
   }
 
-  struct sockaddr_in sa_serv;
-  memset(&sa_serv, 0, sizeof(sa_serv));
-  sa_serv.sin_family      = AF_INET;
-  sa_serv.sin_addr.s_addr = INADDR_ANY;
-  sa_serv.sin_port        = htons(port);
-  
-  if (::bind(sockfd, (struct sockaddr*)&sa_serv, sizeof(sa_serv)) == -1) {
-    close(sockfd);
-    syslog(LOG_ERR, "Communication: Failed to bind socket.");
+  int sockfd;
+  for(l = servinfo; l != NULL; l = l->ai_next) {
+    if ((sockfd = socket(l->ai_family, l->ai_socktype, l->ai_protocol)) == -1) {
+      continue;
+    }
+
+    if (::bind(sockfd, l->ai_addr, l->ai_addrlen) == -1) {
+      close(sockfd);
+      syslog(LOG_ERR, "Communication: Failed to bind socket.");
+      continue;
+    }
+
+    break;
+  }
+
+  if (l == NULL) {
+    syslog(LOG_ERR, "Communication: Creating socket failed.");
     return 0;
   }
+
+  freeaddrinfo(servinfo);
   
   // start basic tcp listening
-  if (listen(sockfd, 5) == -1) {
+  if (listen(sockfd, BACKLOG) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to listen on socket.");
     return 0;
@@ -163,25 +181,42 @@ int listen_on_tcp(int port) {
 
 // connect to a tcp socket
 int connect_to_tcp(int port, string host_ip) {
-  int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+  int status;
+  struct addrinfo hints,  *servinfo, *l;
+
+  memset(&hints, 0, sizeof hints);
+  hints.ai_family = AF_UNSPEC; 
+  hints.ai_socktype = SOCK_STREAM;
   
-  if (sockfd == -1) {
-    syslog(LOG_ERR, "Communication: Creating socket failed. %s", strerror(errno));
+  
+  if ((status = getaddrinfo(host_ip.c_str(), to_string(port).c_str(), &hints, &servinfo)) != 0) {
+    syslog(LOG_ERR, "Communication: getaddrinfo failed: %s", gai_strerror(status));
     return 0;
   }
-    
-  struct sockaddr_in server_addr;
-  memset (&server_addr, '\0', sizeof(server_addr));
-  server_addr.sin_family      = AF_INET;
-  server_addr.sin_port        = htons(port);
-  server_addr.sin_addr.s_addr = inet_addr(host_ip.c_str());
-  
-  // establish basic tcp connection
-  if (connect(sockfd, (struct sockaddr*) &server_addr, sizeof(server_addr)) == -1) {
+
+
+  int sockfd;
+  for(l = servinfo; l != NULL; l = l->ai_next) {
+    if ((sockfd = socket(l->ai_family, l->ai_socktype, l->ai_protocol)) == -1) {
+      continue;
+    }
+
+    break;
+  }
+
+  if (l == NULL) {
+    syslog(LOG_ERR, "Communication: Creating socket failed.");
+    return 0;
+  }
+
+
+  if (connect(sockfd, l->ai_addr, l->ai_addrlen) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to connect to socket.");
     return 0;
   }
+  
+  freeaddrinfo(servinfo);
   
   return sockfd;
 }

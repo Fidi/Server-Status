@@ -87,77 +87,83 @@ void SystemStats::readStatus() {
 
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
-  
-  // check for application mode and file existance 
-  if ((this->distribution[0] == "SEND") || (!file_exists(this->filepath + this->section + ".json"))) {
-    syslog(LOG_DEBUG, "Could not load existing json files.");
-    return false;
-  }
-  
-  std::vector<string> lines;
-  string pattern0 = "{ \"title\" : ";
-  string pattern1 = "\"absolute\": \"";
-  
-  // find lines that have datapoints:
-  ifstream file(this->filepath + this->section + ".json");
-  string str; 
-  while (getline(file, str))
-  {
-    if (str.find(pattern0) != std::string::npos) {
-      lines.push_back(str);
-    } else if ((this->delta) && (str.find(pattern1) != std::string::npos)) {
-      str.erase(0, str.find(pattern1) + pattern1.size());  
-      str = str.substr(0, str.find("\","));
-      this->delta_abs_value.push_back(atof(str.c_str()));
-    }
-  }
-  
-  // now all data values are inside the lines-vector.
-  // check if their size matches the configuration:
-  int datasize = this->array_size * this->element_count; 
-  if (this->delta) { datasize -= this->element_count; }
-  if (lines.size() != datasize) {
-    syslog(LOG_WARNING, "%s: Could not load existing json files. Datapoints mismatch configuration file.", this->section.c_str());
-    return false;
-  }
-  
-  // for delta add the previous value for correct calculation
-  if (this->delta) {
-    setValue("-", this->delta_abs_value);
-  }
-  
-  // extract data and add them to the array
-  string tmp;
-  string tim;
-  string va;
-  string pattern2 = "\"value\" : ";
-  std::vector<double> val;
-  for (int j = 0; j < datasize/this->element_count; j++) {
-    // 1) get time:
-    tmp = lines[j];
-    tmp.erase(0, tmp.find(pattern0) + pattern0.size());
-    tim = tmp.substr(tmp.find("\"")+1, tmp.find("\"", 2)-1);
+  try {
     
-    // 2) get values:
-    val.clear();
-    for (int i = 0; i < this->element_count; i++) {
-      tmp = lines[j + (i*(this->array_size-1))];
-      tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
-      va = tmp.substr(0, tmp.find("}"));
-      // if atof fails it will write "0"
-      if (this->delta) {
-        this->delta_abs_value[i] = this->delta_abs_value[i] + atof(va.c_str());
-        val.push_back(this->delta_abs_value[i]);
-      } else {
-        val.push_back(atof(va.c_str()));
+    // check for application mode and file existance 
+    if (((this->_output_details.size() >= 1) && (this->_output_details[0] != "JSON")) || (!file_exists(this->filepath + this->section + ".json"))) {
+      syslog(LOG_NOTICE, "Could not load existing json files.");
+      return false;
+    }
+    
+    
+    std::vector<string> lines;
+    string pattern0 = "{ \"title\" : ";
+    string pattern1 = "\"absolute\": \"";
+    
+    // find lines that have datapoints:
+    ifstream file(this->filepath + this->section + ".json");
+    string str; 
+    while (getline(file, str))
+    {
+      if (str.find(pattern0) != std::string::npos) {
+        lines.push_back(str);
+      } else if ((this->delta) && (str.find(pattern1) != std::string::npos)) {
+        str.erase(0, str.find(pattern1) + pattern1.size());  
+        str = str.substr(0, str.find("\","));
+        this->delta_abs_value.push_back(atof(str.c_str()));
       }
     }
     
-    // 3) add record
-    setValue(tim, val);
-  }
+    // now all data values are inside the lines-vector.
+    // check if their size matches the configuration:
+    int datasize = this->array_size * this->element_count; 
+    if (this->delta) { datasize -= this->element_count; }
+    if (lines.size() != datasize) {
+      syslog(LOG_WARNING, "%s: Could not load existing json files. Datapoints mismatch configuration file.", this->section.c_str());
+      return false;
+    }
+    
+    // for delta add the previous value for correct calculation
+    if (this->delta) {
+      setValue("-", this->delta_abs_value);
+    }
+    
+    // extract data and add them to the array
+    string tmp;
+    string tim;
+    string va;
+    string pattern2 = "\"value\" : ";
+    std::vector<double> val;
+    for (int j = 0; j < datasize/this->element_count; j++) {
+      // 1) get time:
+      tmp = lines[j];
+      tmp.erase(0, tmp.find(pattern0) + pattern0.size());
+      tim = tmp.substr(tmp.find("\"")+1, tmp.find("\"", 2)-1);
+      
+      // 2) get values:
+      val.clear();
+      for (int i = 0; i < this->element_count; i++) {
+        tmp = lines[j + (i*(this->array_size-1))];
+        tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
+        va = tmp.substr(0, tmp.find("}"));
+        // if atof fails it will write "0"
+        if (this->delta) {
+          this->delta_abs_value[i] = this->delta_abs_value[i] + atof(va.c_str());
+          val.push_back(this->delta_abs_value[i]);
+        } else {
+          val.push_back(atof(va.c_str()));
+        }
+      }
+      
+      // 3) add record
+      setValue(tim, val);
+    }
 
-  return true;
+    return true;
+    
+  } catch (int e) {
+    return false;
+  } 
 }
 
 
@@ -195,8 +201,10 @@ bool SystemStats::loadConfigFile(string configFile) {
       this->json_type = line;
     }
     
-    string s = configuration->readDistribution(this->section);
-    this->distribution = split(s, ' ');
+    string s = configuration->readInput(this->section);
+    this->_input_details = split(s, ' ');
+    s = configuration->readOutput(this->section);
+    this->_output_details = split(s, ' ');
     this->port = configuration->readServerPort();
     this->ssl = configuration->readSSL();
     
@@ -269,15 +277,15 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
 
 bool SystemStats::isReceiving(string &sender_ip, string &clientID) {
   // first do some syntax checking
-  if (this->distribution.size() != 5) {
+  if (this->_input_details.size() != 5) {
     return false;
   } else {
-    if ((this->distribution[0] != "RECEIVE") || (this->distribution[1] != "FROM") || (this->distribution[3] != "ID")) {
+    if ((this->_input_details[0] != "RECEIVE") || (this->_input_details[1] != "FROM") || (this->_input_details[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      sender_ip = this->distribution[2];
-      clientID = this->distribution[4];
+      sender_ip = this->_input_details[2];
+      clientID = this->_input_details[4];
       return true;
     }
   }
@@ -285,15 +293,15 @@ bool SystemStats::isReceiving(string &sender_ip, string &clientID) {
 
 bool SystemStats::isSending(string &receiver_ip, string &clientID){
   // first do some syntax checking
-  if (this->distribution.size() != 5) {
+  if (this->_output_details.size() != 5) {
     return false;
   } else {
-    if ((this->distribution[0] != "SEND") || (this->distribution[1] != "TO") || (this->distribution[3] != "ID")) {
+    if ((this->_output_details[0] != "SEND") || (this->_output_details[1] != "TO") || (this->_output_details[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      receiver_ip = this->distribution[2];
-      clientID = this->distribution[4];
+      receiver_ip = this->_output_details[2];
+      clientID = this->_output_details[4];
       return true;
     }
   } 
