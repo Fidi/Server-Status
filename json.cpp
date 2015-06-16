@@ -143,13 +143,13 @@ bool JSON::writeJSONtoFile(data output[], size_t array_size, int position_pointe
   try {
     
     ofstream out;
-    out.open(this->filepath + "test.json");
+    out.open(this->filepath + this->json_filename);
     
     out << "{ \n";
     
     // write JSON header
     out << "  \"graph\" : { \n";
-    out << "  \"title\" : \"" + this->section + "\", \n"; 
+    out << "  \"title\" : \"" + this->json_title + "\", \n"; 
     out << "  \"type\" : \"" + getGraphTypeString(this->graph_type) + "\", \n";
     out << "  \"refreshEveryNSeconds\" : " << this->refresh_interval << ", \n";
      
@@ -245,6 +245,8 @@ bool JSON::loadConfigFile(string configFile){
     
     this->filepath = configuration->readFilepath();
     this->json_filename = configuration->readJSONFilename(this->section);
+    
+    this->json_title = configuration->readJSONTitle(this->section);
     
     this->sequence_count = configuration->readSequenceCount(this->section);
     this->sequence_length = configuration->readElementCount(this->section);

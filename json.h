@@ -23,6 +23,7 @@ class JSON
     int sequence_count;
     int sequence_length;
 
+    std::string json_title;
     std::vector<std::string> sequence_title;
     std::vector<std::string> sequence_color;
 
