@@ -10,8 +10,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <iostream>
-#include <pthread.h>
-#include <mutex>
 #include <syslog.h>
 #include <vector>
 
@@ -48,13 +46,13 @@ void write_tcp_output(int sockfd, string msg);
 
 #if __OPENSSL__
   SSL_CTX* init_SSL_context(app_mode mode);
-  void show_remote_certificate(SSL* ssl);
+  bool show_remote_certificate(SSL* ssl);
   
   string read_input(int sockfd, SSL_CTX* ctx);
   string read_ssl_input(SSL* ssl);
   
   void write_output(int sockfd, string msg, SSL_CTX* ctx);
-  void write_ssl_output(SSL* ssl, string msg);
+  bool write_ssl_output(SSL* ssl, string msg);
 #endif
 
 
@@ -104,22 +102,30 @@ void destroy_socket(connection &con) {
 
 
 
-string read_from_socket(connection &con) {
+bool read_from_socket(connection &con, string &input) {
+  if (con.socket == 0) { return false; }
+  
   #if __OPENSSL__
-    return read_input(con.socket, con.ctx);
+    input = read_input(con.socket, con.ctx);
   #else
-    return read_input(con.socket);
+    input = read_input(con.socket);
   #endif
+  
+  return true;
 }
 
 
 
-void write_to_socket(connection &con, string msg) {
+bool write_to_socket(connection &con, string msg) {
+  if (con.socket == 0) { return false; }
+  
   #if __OPENSSL__
     write_output(con.socket, msg, con.ctx);
   #else
     write_output(con.socket, msg);
   #endif
+  
+  return true;
 }
 
 
@@ -281,10 +287,12 @@ void *get_in_addr(struct sockaddr *sa) {
 *****************************************************************/
 
 // get local certificates
-void load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
+bool load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
   #if __OPENSSL__
 
     if (con.ctx != NULL) {
+      
+      bool success = true;
       
       if (SSL_CTX_load_verify_locations(con.ctx, CertFile, KeyFile) != 1) {
         syslog(LOG_ERR, "Communication: Certificate - Verifiy Locations failed.");
@@ -296,28 +304,38 @@ void load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
       
       if (SSL_CTX_use_certificate_file(con.ctx, CertFile, SSL_FILETYPE_PEM) <= 0) {
         syslog(LOG_ERR, "Communication: Certificate - Use Certificate failed.");
-        return;
+        success = false;
       }
       if (SSL_CTX_use_PrivateKey_file(con.ctx, KeyFile, SSL_FILETYPE_PEM) <= 0) {
         syslog(LOG_ERR, "Communication: Certificate - Use Private Key failed.");
-        return;
+        success = false;
       }
       if (!SSL_CTX_check_private_key(con.ctx)){
         syslog(LOG_ERR, "Communication: Certificate - Private Key does not match.");
-        return;
+        success = false;
       }
       
-      syslog(LOG_NOTICE, "Communication: Certificates successfully loaded.");
+      if (success) {
+        syslog(LOG_NOTICE, "Communication: Certificates successfully loaded.");
+        return true;
+      } else {
+        // if no certificate is found do not use SSL
+        SSL_CTX_free(con.ctx);
+        con.ctx = NULL;
+        return false;
+      }
     }
     
   #endif
+  
+  return false;
 }
 
 
 #if __OPENSSL__
 
   // get communication partner certificates
-  void show_remote_certificate(SSL* ssl) {
+  bool show_remote_certificate(SSL* ssl) {
     X509 *cert;
 
     // try to get certificates
@@ -326,9 +344,11 @@ void load_local_certificate(connection &con, char* CertFile, char* KeyFile) {
       syslog(LOG_DEBUG, "Communication: Subject: %s", X509_NAME_oneline(X509_get_subject_name(cert), 0, 0));
       syslog(LOG_DEBUG, "Communication: Issuer:  %s", X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0));
       X509_free(cert);
+      return true;
     }
     else {
       syslog(LOG_DEBUG, "Communication: No Certificates found.");
+      return false;
     }
   }
   
@@ -469,7 +489,9 @@ void write_tcp_output(int sockfd, string msg) {
       // attach the socket descriptor
       SSL_set_fd(ssl, sockfd);
       
-      write_ssl_output(ssl, msg); 
+      if (!write_ssl_output(ssl, msg)) {
+        write_output(sockfd, msg);
+      }
     } else {
       write_output(sockfd, msg);
     }
@@ -477,20 +499,29 @@ void write_tcp_output(int sockfd, string msg) {
   
   
   // write the message encrypted 
-  void write_ssl_output(SSL* ssl, string msg) {
+  bool write_ssl_output(SSL* ssl, string msg) {
     // try to connect
     if (SSL_connect(ssl) == -1) {
       syslog(LOG_ERR, "Communication: Failed to connect to SSL socket.");
+      return false;
     } else {   
       syslog(LOG_DEBUG, "Connected with %s encryption\n", SSL_get_cipher(ssl));
-      show_remote_certificate(ssl);
       
-      // encrypt message and send it
-      SSL_write(ssl, msg.c_str(), strlen(msg.c_str()));
+      if (show_remote_certificate(ssl)) {
+        // encrypt message and send it
+        SSL_write(ssl, msg.c_str(), strlen(msg.c_str()));
+      } else {
+        // release connection state
+        SSL_free(ssl);
+        return false;
+      }
+      
+     
     }
     
     // release connection state
     SSL_free(ssl);
+    return true;
   }
 
 #endif

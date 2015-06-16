@@ -1,3 +1,5 @@
+#include "serverstatus.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -17,11 +19,11 @@
 #include <pthread.h>
 #include <mutex>
 
-#include "serverstatus.h"
 #include "system_stats.h"
 #include "unix_functions.h"
 #include "config.h"
 #include "communication.h"
+#include "status_types.h"
 
 using namespace std;
 
@@ -217,17 +219,27 @@ void *serverThread(void *arg) {
   syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
   connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
   
+  
+  // check if connection was created successfully 
+  if (c.socket == 0) { 
+    syslog(LOG_ERR, "Server Thread: Failed to create socket.");
+    pthread_exit(0);
+  }
   if ((s->ssl) && (s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
-    load_local_certificate(c, s->cert_file, s->key_file);
+    if (!load_local_certificate(c, s->cert_file, s->key_file)) {
+      syslog(LOG_ERR, "Server Thread: Failed to load certificates.");
+      pthread_exit(0);
+    }
   }
   
-  if (c.socket == 0) { pthread_exit(0); }
   
   string input;
   while (loop) {
+    // wait for input on the socket
     try {
-      // wait for input on the socket
-      input = read_from_socket(c);
+      if (!read_from_socket(c, input)) {
+        continue;
+      }
       syslog(LOG_DEBUG, "%s", input.c_str());
       
       // string is expected to have form such as "type, id, value1, value2, ..."
@@ -235,7 +247,7 @@ void *serverThread(void *arg) {
       storeValueGlobal(s);
       
     } catch (int e) {
-      
+      syslog(LOG_ERR, "Server Thread: An error occurred.");
     }
   }
   

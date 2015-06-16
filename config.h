@@ -34,6 +34,7 @@ class config
 		std::string readKeyFile();
 		
 		// returns basic configuration for one type:
+		std::string readType(std::string section);
 		bool readEnabled(std::string type);		
 		int readInterval(std::string type);		
 		int readElementCount(std::string type);
@@ -42,6 +43,7 @@ class config
 		std::string readOutput(std::string type);
 		
 		// returns JSON header informations for one type:
+		std::string readJSONFilename(std::string type);
 		std::string readJSONTitle(std::string type);
 		std::string readJSONType(std::string type);
 		int readJSONRefreshInterval(std::string type);

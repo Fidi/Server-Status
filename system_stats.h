@@ -1,64 +1,22 @@
 #ifndef _systat_hpp_
 #define _systat_hpp_
 
+#define __JSON__ true
+
 #include <time.h>
-#include <string>
-#include <vector>
+#include "status_types.h"
 
 
 
-// contains a timestamp and any number of values
-struct _data_t {
-  std::string timestamp;
-  std::vector<double> value;
-};
-typedef struct _data_t data;
 
-
-// differnt types of status information that serverstatus can read
-enum _status_t {
-  CPU,            // cpu temperature
-  Load,           // load average (1, 5 and 15)
-  HDD,            // disc temperature (smart required)
-  Mount,          // disc size (free / used space)
-  Memory,         // RAM status (active, inactive, free, ...)
-  Network,        // Network in / out traffic
-  None
-};
-typedef enum _status_t status;
-
-
-// different graph types (for iOS StatusBoard)
-enum _json_t {
-  line,
-  bar,
-  pie,
-  none
-};
-typedef enum _json_t json;
-
-
-
-enum _data_output_t {
-  JSON,
-  OUT_SOCKET,
-  OUT_NONE
-};
-typedef enum _data_output_t data_output;
-
-enum _data_input_t {
-  CMD,
-  IN_SOCKET,
-  IN_NONE
-};
-typedef enum _data_input_t data_input;
-
+// socket structure 
 struct _socket_details_t {
   int port;
   std::string host_ip;
   bool ssl;
 };
 typedef struct _socket_details_t socket_details;
+
 
 
 
@@ -78,6 +36,8 @@ class SystemStats
     bool loadFromFile();
 
   private:
+    std::string sConfigFile;
+    
     status type;
     int array_size;
 
@@ -99,7 +59,7 @@ class SystemStats
 
     std::string filepath;
     std::string section;
-    json json_type;
+    json_graph json_type;
     int interval;
     int refresh_interval;
 
@@ -115,11 +75,6 @@ class SystemStats
     void Inc(int &value);
     void writeJSONFile();
 };
-
-
-// get string that should be read from config file
-std::string getStringFromType(status type);
-status getTypeFromString(std::string type);
 
 
 #endif

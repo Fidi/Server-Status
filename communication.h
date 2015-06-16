@@ -5,7 +5,6 @@
 #define __OPENSSL__ true
 
 #include <string.h>
-#include <mutex>
 
 
 #if __OPENSSL__
@@ -45,13 +44,13 @@ connection create_socket(app_mode mode, int port, std::string host_ip, bool ssl 
 void destroy_socket(connection &con);
 
 // if SSL then the Server should load the certificates
-void load_local_certificate(connection &con, char* CertFile, char* KeyFile);
+bool load_local_certificate(connection &con, char* CertFile, char* KeyFile);
 
 // server function: reads input from socket
-std::string read_from_socket(connection &con);
+bool read_from_socket(connection &con, std::string &input);
 
 // client function: writes output to socket
-void write_to_socket(connection &con, std::string msg);
+bool write_to_socket(connection &con, std::string msg);
 
 
 #endif

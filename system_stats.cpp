@@ -13,6 +13,11 @@
 #include "unix_functions.h"
 #include "config.h"
 #include "communication.h"
+#include "status_types.h"
+
+#if __JSON__
+  #include "json.h"
+#endif
 
 using namespace std;
 
@@ -23,9 +28,11 @@ using namespace std;
 **
 *****************************************************************/
 
+// constructor: load config and init class
 SystemStats::SystemStats(status type, string configFile){
   // set the type (cpu, load, hdd, mount or memory):
   this->type = type;
+  this->sConfigFile = configFile;
   
   // now init the generic class with the config file
   if (loadConfigFile(configFile)) {
@@ -34,6 +41,7 @@ SystemStats::SystemStats(status type, string configFile){
   } 
 }
 
+// destructor
 SystemStats::~SystemStats() {
   delete [] this->list;
 }
@@ -50,6 +58,7 @@ void SystemStats::readStatus() {
   string id;
   
   // distinguish between server | client | standalone
+  
   if (isReceiving(ip, id)) {
     // we are in server receive mode
     thread_value t = readValueGlobal(this->type, id);
@@ -174,10 +183,11 @@ bool SystemStats::loadFromFile(){
 **
 *****************************************************************/
 
-// loads the ini-based config and sets the variables
+// loads the cfg file and sets the variables
 bool SystemStats::loadConfigFile(string configFile) {
 	
   if (file_exists(configFile)) {
+    
 	  this->section = getStringFromType(this->type);
     config *configuration = new config(configFile);
 
@@ -186,6 +196,11 @@ bool SystemStats::loadConfigFile(string configFile) {
 
     // read number of informations:
     this->element_count = configuration->readSequenceCount(this->section);
+    
+    this->input = IN_NONE;
+    
+    
+    
     for (int i=1; i<=this->element_count; i++) {
       this->cmd.push_back(configuration->readSequenceCommand(this->section, i-1));
       this->description.push_back(configuration->readSequenceTitle(this->section, i-1));
@@ -193,12 +208,14 @@ bool SystemStats::loadConfigFile(string configFile) {
     }
 
     string _type = configuration->readJSONType(this->section);
-    if (_type == "bar") {
-      this->json_type = bar;
+    if (_type == "line") {
+       this->json_type = JSON_LINE;
+    } else if (_type == "bar") {
+      this->json_type = JSON_BAR;
     } else if (_type == "pie") {
-      this->json_type = pie;
+      this->json_type = JSON_PIE;
     } else {
-      this->json_type = line;
+      this->json_type = JSON_AUTO;
     }
     
     string s = configuration->readInput(this->section);
@@ -327,9 +344,9 @@ void SystemStats::writeJSONFile() {
   
   string graphtype;
   switch (this->json_type) {
-    case bar: graphtype = "bar";  break;
-    case pie: graphtype = "pie";  break;
-    default:  graphtype = "line"; break;
+    case JSON_BAR: graphtype = "bar";  break;
+    case JSON_PIE: graphtype = "pie";  break;
+    default:       graphtype = "line"; break;
   }  
   out << "  \"type\" : \"" + graphtype + "\", \n";
   out << "  \"refreshEveryNSeconds\" : " << this->refresh_interval << ", \n";
@@ -396,46 +413,4 @@ void SystemStats::writeJSONFile() {
   out << "} \n";
   
   out.close();
-}
-
-
-
-
-/*****************************************************************
-**
-**  HELPER FUNCTIONS
-**
-*****************************************************************/
-string getStringFromType(status type) {
-  string res;
-  switch (type) {
-    case CPU: res     = "cpu";     break;
-    case Load: res    = "load";    break;
-    case HDD: res     = "hdd";     break;
-    case Mount: res   = "mount";   break;
-    case Memory: res  = "memory";  break;
-    case Network: res = "network"; break;
-    default: throw "No status type submitted."; break;
-  }
-  
-  return res;
-}
-
-status getTypeFromString(string type) {
-  if (type == "cpu") { 
-    return CPU; 
-  } else if (type == "load") { 
-    return Load; 
-  } else if (type == "hdd") { 
-    return HDD; 
-  } else if (type == "mount") { 
-    return Mount; 
-  } else if (type == "memory") { 
-    return Memory; 
-  } else if (type == "network") { 
-    return Network; 
-  } else  { 
-    throw "No valid status type found.";
-    return None; 
-  }
 }

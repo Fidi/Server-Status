@@ -70,7 +70,7 @@ You can start ServerStatus manually by running:
 
      service serverstatus start
 
-But you might want to consider to add ServerStatus to your autostart programs so that der system status can be monitored right after your system started.
+But you might want to consider to add ServerStatus to your autostart programs so that your systems status can be monitored right after your system started.
 
 **Note**:
 With the latest changes, ServerStatus will require _root_ privileges to run.  

@@ -9,7 +9,7 @@ endif
 FLAGS = -std=c++11 -Wall -I /usr/local/include
 
 # Input files
-INPUT = system_stats.o unix_functions.o config.o communication.o serverstatus.o
+INPUT = system_stats.o unix_functions.o status_types.o config.o communication.o json.o serverstatus.o
 
 #PATH variable
 EXEPATH = /bin/
@@ -51,9 +51,15 @@ system_stats.o: system_stats.cpp
 
 unix_functions.o: unix_functions.cpp
 	$(CC) -c unix_functions.cpp $(FLAGS)
+
+status_types.o: status_types.cpp
+	$(CC) -c status_types.cpp $(FLAGS)
 	
 communication.o: communication.cpp
 	$(CC) -c communication.cpp $(FLAGS) -Wno-deprecated-declarations
+	
+json.o: json.cpp
+	$(CC) -c json.cpp $(FLAGS)
 	
 serverstatus.o: serverstatus.cpp
 	$(CC) -c serverstatus.cpp $(FLAGS) -pthread

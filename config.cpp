@@ -128,6 +128,17 @@ string config::readKeyFile(){
 }
 
 
+
+string config::readType(string section) {
+	try {
+		const Setting &sec = this->ConfigFile.getRoot()[section.c_str()];
+		string type;
+		sec.lookupValue("type", type);
+		return type;
+	} catch (const SettingNotFoundException &nfound) {
+		return "none";
+	}
+}
 bool config::readEnabled(string type){
 	try {
 		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
@@ -191,6 +202,19 @@ string config::readOutput(string type) {
 
 
 
+string config::readJSONFilename(string type){
+	try {
+		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["json"];
+		string filename;
+		section.lookupValue("filename", filename);
+		if (filename.substr(filename.find_last_of(".") + 1) != "json") {
+			filename += ".json";
+		}
+		return filename;
+	} catch (const SettingNotFoundException &nfound) {
+		return type + ".json";
+	}
+}
 string config::readJSONTitle(string type){
 	try {
 		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["json"]["header"];
@@ -246,11 +270,15 @@ int config::readJSONyAxisMaximum(string type){
 
 
 int config::readSequenceCount(string type){
+	int count = 0;
 	try {
-		const Setting &section = this->ConfigFile.getRoot()[type.c_str()]["json"]["sequence"]["title"];
-		return section.getLength();
+		const Setting &sec1 = this->ConfigFile.getRoot()[type.c_str()]["cmd"];
+		if (sec1.getLength() > count) { count = sec1.getLength(); }		
+		const Setting &sec2 = this->ConfigFile.getRoot()[type.c_str()]["json"]["sequence"]["title"];
+		if (sec2.getLength() > count) { count = sec2.getLength(); }	
+		return count;
 	} catch (const SettingNotFoundException &nfound) {
-		return 0;
+		return count;
 	}
 }
 string config::readSequenceCommand(string type, int num){
