@@ -6,6 +6,10 @@
 #include <time.h>
 #include "status_types.h"
 
+#if __JSON__
+  #include "json.h"
+#endif
+
 
 
 
@@ -23,8 +27,16 @@ typedef struct _socket_details_t socket_details;
 class SystemStats
 {
   public:
-    SystemStats(status type, std::string configFile);
+    SystemStats(std::string section, std::string configFile);
     ~SystemStats();
+    
+    void readStatus();
+    bool loadFromFile();
+
+  private:
+    std::string configFile;
+    
+    
     
     data_input input;
     socket_details input_details;
@@ -32,11 +44,7 @@ class SystemStats
     data_output output;
     socket_details output_details;
     
-    void readStatus();
-    bool loadFromFile();
-
-  private:
-    std::string sConfigFile;
+    
     
     status type;
     int array_size;
@@ -62,18 +70,20 @@ class SystemStats
     json_graph json_type;
     int interval;
     int refresh_interval;
+    
+    #if __JSON__
+      JSON *json_class = nullptr;
+    #endif
 
 
     bool loadConfigFile(std::string configFile);
     void initArray();
 
     void setValue(std::string time, std::vector<double> value);
+    void saveData();
     
     bool isReceiving(std::string &sender_ip, std::string &clientID);
     bool isSending(std::string &receiver_ip, std::string &clientID);
- 
-    void Inc(int &value);
-    void writeJSONFile();
 };
 
 

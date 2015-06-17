@@ -29,21 +29,32 @@ using namespace std;
 *****************************************************************/
 
 // constructor: load config and init class
-SystemStats::SystemStats(status type, string configFile){
+SystemStats::SystemStats(string section, string configFile){
   // set the type (cpu, load, hdd, mount or memory):
-  this->type = type;
-  this->sConfigFile = configFile;
+  this->section = section;
+  this->configFile = configFile;
   
   // now init the generic class with the config file
   if (loadConfigFile(configFile)) {
     if ( this->delta) { this->array_size++; }
     initArray();
   } 
+  
+  #if __JSON__
+    if (this->output == OUT_JSON) {
+      json_class = new JSON(configFile, this->section);
+      syslog(LOG_NOTICE, "SysStats %s: JSON class created", this->section.c_str());
+    }
+  #endif
 }
 
 // destructor
 SystemStats::~SystemStats() {
   delete [] this->list;
+  
+  #if __JSON__
+    delete this->json_class;
+  #endif
 }
 
 
@@ -89,13 +100,14 @@ void SystemStats::readStatus() {
   // save values into array and write to file
   if (newVal.size() > 0) {
     setValue(getReadableTime(), newVal);
-    writeJSONFile();
+    saveData();
   }
 }
 
 
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
+  /*
   try {
     
     // check for application mode and file existance 
@@ -173,6 +185,8 @@ bool SystemStats::loadFromFile(){
   } catch (int e) {
     return false;
   } 
+  */
+  return true;
 }
 
 
@@ -188,7 +202,7 @@ bool SystemStats::loadConfigFile(string configFile) {
 	
   if (file_exists(configFile)) {
     
-	  this->section = getStringFromType(this->type);
+	  //this->section = getStringFromType(this->type);
     config *configuration = new config(configFile);
 
     // read array sizes:
@@ -197,7 +211,8 @@ bool SystemStats::loadConfigFile(string configFile) {
     // read number of informations:
     this->element_count = configuration->readSequenceCount(this->section);
     
-    this->input = IN_NONE;
+    this->input = IN_CMD;
+    this->output = OUT_JSON;
     
     
     
@@ -289,6 +304,19 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
   }
 }
 
+void SystemStats::saveData() {
+  switch (this->output) {
+    case OUT_JSON:  { // submit data to json class that handles everything from here on
+                      #if __JSON__
+                        if (this->json_class != nullptr) {
+                          this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
+                        }
+                      #endif
+                      break;
+                    }
+    default: break;
+  }
+}
 
 
 
@@ -322,95 +350,4 @@ bool SystemStats::isSending(string &receiver_ip, string &clientID){
       return true;
     }
   } 
-}
-
-
-
-
-void SystemStats::Inc(int &value) {
-  if (value < this->array_size) { value++; }
-  else { value = 0; }
-}
-
-
-
-// generic json export function
-void SystemStats::writeJSONFile() {
-  ofstream out;
-  out.open(this->filepath + this->section + ".json");
-  out << "{ \n";
-  out << "  \"graph\" : { \n";
-  out << "  \"title\" : \"" + this->section + "\", \n";
-  
-  string graphtype;
-  switch (this->json_type) {
-    case JSON_BAR: graphtype = "bar";  break;
-    case JSON_PIE: graphtype = "pie";  break;
-    default:       graphtype = "line"; break;
-  }  
-  out << "  \"type\" : \"" + graphtype + "\", \n";
-  out << "  \"refreshEveryNSeconds\" : " << this->refresh_interval << ", \n";
-  
-  out << "  \"datasequences\" : [ \n";
-  
-  // for every load value print a line:
-  for (int j = 0; j < this->element_count; j++) {
-	
-    out << "      {";
-    out << "      \"title\": \"" << this->description[j] << + "\", \n";
-    if (this->color[j] != "-") {
-      out << "             \"color\": \"" << this->color[j] << + "\", \n";
-    }
-    
-    
-    double val;
-    int start_position = this->list_position;
-    if (this->delta) { Inc(start_position); }
-    
-    if (this->delta) {
-      out << "             \"absolute\": \"" << this->list[this->list_position].value[j] << + "\", \n";
-    }
-    
-    out << "             \"datapoints\" : [ \n";
-
-
-    for (int i = start_position; i < this->array_size; i++) {
-      val = this->list[i].value[j];
-      if (this->delta) { if (i == 0) { val -= this->list[this->array_size-1].value[j]; } else { val -= this->list[i-1].value[j]; } }
-      if ((this->list_position == 0) && (i == this->array_size-1)) {
-        out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "} \n";
-      } else {
-        out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "}, \n";
-      }
-      
-    }
-
-    if (this->list_position != 0) {
-      // print the remaining elements
-      for (int i=0; i < this->list_position; i++) {
-        val = this->list[i].value[j];
-        if (this->delta) { if (i == 0) { val -= this->list[this->array_size-1].value[j]; } else { val -= this->list[i-1].value[j]; } }
-        if (i == this->list_position - 1) {
-          out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "} \n";
-        } else {
-          out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "}, \n";
-        }
-        
-      }
-    }
-
-    out << "             ] \n";
-    if (j == this->element_count - 1) {
-	  out << "      } \n";
-    } else {
-      out << "      }, \n";
-    }
-
-  }
-  
-  out << "  ] \n";
-  out << "  } \n";
-  out << "} \n";
-  
-  out.close();
 }

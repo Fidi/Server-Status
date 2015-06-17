@@ -53,7 +53,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
     string val_pattern  = "\"value\" : ";
     
     // open JSON file and read matching lines into vector
-    ifstream file(this->json_filename);
+    ifstream file(this->filepath + this->json_filename);
     std::vector<string> data_lines;
     string str; 
     if (delta) { output[0].value.clear(); }

@@ -2,6 +2,7 @@
 #define _config_hpp_
 
 #include <string.h>
+#include <vector>
 #include <libconfig.h++>
 
 
@@ -32,6 +33,9 @@ class config
 		bool readSSL();
 		std::string readCertFile();
 		std::string readKeyFile();
+		
+		
+		std::vector<std::string> readSections();
 		
 		// returns basic configuration for one type:
 		std::string readType(std::string section);

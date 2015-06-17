@@ -129,21 +129,38 @@ string config::readKeyFile(){
 
 
 
+
+vector<string> config::readSections() {
+	vector<string> v;
+	
+	try {
+		const Setting &s = this->ConfigFile.getRoot()["sections"];
+		for (int i = 0; i < s.getLength(); i++) {
+			v.push_back(s[i]);
+		}
+	} catch (const SettingNotFoundException &nfound) {		
+	}
+	
+	return v;
+}
+
+
+
 string config::readType(string section) {
 	try {
-		const Setting &sec = this->ConfigFile.getRoot()[section.c_str()];
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
 		string type;
-		sec.lookupValue("type", type);
+		s.lookupValue("type", type);
 		return type;
 	} catch (const SettingNotFoundException &nfound) {
 		return "none";
 	}
 }
-bool config::readEnabled(string type){
+bool config::readEnabled(string section){
 	try {
-		const Setting &section = this->ConfigFile.getRoot()[type.c_str()];
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
 		bool enabled;
-		section.lookupValue("enabled", enabled);
+		s.lookupValue("enabled", enabled);
 		return enabled;
 	} catch (const SettingNotFoundException &nfound) {
 		return true;
