@@ -7,6 +7,7 @@
 #include <vector>
 #include <syslog.h>
 #include <cstring>
+#include <algorithm>
 
 #include "serverstatus.h"
 #include "system_stats.h"
@@ -35,10 +36,11 @@ SystemStats::SystemStats(string section, string configFile){
   this->configFile = configFile;
   
   // now init the generic class with the config file
-  if (loadConfigFile(configFile)) {
-    if ( this->delta) { this->array_size++; }
+  if (loadConfigFile(this->configFile)) {
     initArray();
-  } 
+  } else {
+    syslog(LOG_ERR, "SysStat %s: Failed to load config file [%s].", this->section.c_str(), this->configFile.c_str());
+  }
   
   #if __JSON__
     if (this->output == OUT_JSON) {
@@ -60,8 +62,27 @@ SystemStats::~SystemStats() {
 
 
 
-// function to save the systems temperature into array
 void SystemStats::readStatus() {
+  
+  std::vector<double> newVal;
+  
+  switch (this->input) {
+  	case IN_CMD:  { // run command and use output:
+                    for (int i = 0; i < this->element_count; i++) {
+                      string cmd = this->cmd[i];
+                      const char* cmd_output = &getCmdOutput(&cmd[0])[0];
+                      newVal.push_back(atof(cmd_output));
+                    }
+                    break;
+                  } 
+    default: break;
+  }
+  
+  if (newVal.size() > 0) {
+    setValue(getReadableTime(), newVal);
+    saveData();
+  }
+  /*
   // read requested values:
   std::vector<double> newVal;
   
@@ -102,6 +123,7 @@ void SystemStats::readStatus() {
     setValue(getReadableTime(), newVal);
     saveData();
   }
+  */
 }
 
 
@@ -204,50 +226,36 @@ bool SystemStats::loadConfigFile(string configFile) {
     
 	  //this->section = getStringFromType(this->type);
     config *configuration = new config(configFile);
-
-    // read array sizes:
+    
+    // read array sizes (aka length of a sequence)
     this->array_size = configuration->readElementCount(this->section);
-
-    // read number of informations:
+    if (configuration->readDelta(this->section)) { 
+      syslog(LOG_NOTICE, "SysStats %s: use delta.", this->section.c_str());
+      this->array_size++;
+    }
+    
+    // read number of sequences
     this->element_count = configuration->readSequenceCount(this->section);
     
-    this->input = IN_CMD;
-    this->output = OUT_JSON;
-    
-    
-    
-    for (int i=1; i<=this->element_count; i++) {
-      this->cmd.push_back(configuration->readSequenceCommand(this->section, i-1));
-      this->description.push_back(configuration->readSequenceTitle(this->section, i-1));
-      this->color.push_back(configuration->readSequenceColor(this->section, i-1));
-    }
-
-    string _type = configuration->readJSONType(this->section);
-    if (_type == "line") {
-       this->json_type = JSON_LINE;
-    } else if (_type == "bar") {
-      this->json_type = JSON_BAR;
-    } else if (_type == "pie") {
-      this->json_type = JSON_PIE;
-    } else {
-      this->json_type = JSON_AUTO;
+    // get input commands
+    for (int i = 0; i < this->element_count; i++) {
+      this->cmd.push_back(configuration->readSequenceCommand(this->section, i));
     }
     
-    string s = configuration->readInput(this->section);
-    this->_input_details = split(s, ' ');
-    s = configuration->readOutput(this->section);
-    this->_output_details = split(s, ' ');
-    this->port = configuration->readServerPort();
-    this->ssl = configuration->readSSL();
+    // fill input/output sockets
+    int port = configuration->readServerPort();
+    this->input_details.port = port;
+    this->output_details.port = port;
+    bool ssl = configuration->readSSL();
+    this->input_details.ssl = ssl;
+    this->output_details.ssl = ssl;
     
-    this->delta = configuration->readDelta(this->section);
+    // get input and output 
+    this->input = getInputFromString(configuration->readInput(this->section));
+    this->output = getOutputFromString(configuration->readOutput(this->section));
     
-    this->refresh_interval = configuration->readJSONRefreshInterval(this->section);
-
-    this->interval = configuration->readInterval(this->section);
-    this->filepath = configuration->readFilepath();
-    
-    syslog(LOG_DEBUG, "All configuration loaded");
+    delete configuration;
+    syslog(LOG_NOTICE, "SysStats %s: All configuration loaded", this->section.c_str());
     
     return true;
   }
@@ -304,6 +312,7 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
   }
 }
 
+
 void SystemStats::saveData() {
   switch (this->output) {
     case OUT_JSON:  { // submit data to json class that handles everything from here on
@@ -320,34 +329,85 @@ void SystemStats::saveData() {
 
 
 
-bool SystemStats::isReceiving(string &sender_ip, string &clientID) {
+bool SystemStats::isReceiving(vector<string> input, string &sender_ip, string &clientID) {
   // first do some syntax checking
-  if (this->_input_details.size() != 5) {
+  if (input.size() != 5) {
     return false;
   } else {
-    if ((this->_input_details[0] != "RECEIVE") || (this->_input_details[1] != "FROM") || (this->_input_details[3] != "ID")) {
+    if ((input[0] != "RECEIVE") || (input[1] != "FROM") || (input[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      sender_ip = this->_input_details[2];
-      clientID = this->_input_details[4];
+      sender_ip = input[2];
+      clientID = input[4];
       return true;
     }
   }
 }
 
-bool SystemStats::isSending(string &receiver_ip, string &clientID){
+bool SystemStats::isSending(vector<string> output, string &receiver_ip, string &clientID){
   // first do some syntax checking
-  if (this->_output_details.size() != 5) {
+  if (output.size() != 5) {
     return false;
   } else {
-    if ((this->_output_details[0] != "SEND") || (this->_output_details[1] != "TO") || (this->_output_details[3] != "ID")) {
+    if ((output[0] != "SEND") || (output[1] != "TO") || (output[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      receiver_ip = this->_output_details[2];
-      clientID = this->_output_details[4];
+      receiver_ip = output[2];
+      clientID = output[4];
       return true;
     }
   } 
+}
+
+
+
+
+// parse string to get enum input type
+data_input SystemStats::getInputFromString(string input) {
+  string s = input;
+  std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+  vector<string> str = split(s, ' ');
+  
+  // first check one word strings
+  if (str[0] == "CMD") {
+    return IN_CMD;
+  } else  if (str[0] == "RECEIVE") {
+    string ip, id;
+    if (isReceiving(str, ip, id)) {
+      input_details.ip_adress = ip;
+      input_details.id = id;
+      return IN_SOCKET;
+    }
+    return IN_NONE;
+  } else {
+    return IN_NONE;
+  }
+}
+
+// parse string to get enum output type
+data_output SystemStats::getOutputFromString(string output) {
+  string s = output;
+  std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+  vector<string> str = split(s, ' ');
+  
+  // first check one word strings
+  if (str[0] == "JSON") {
+    return OUT_JSON;
+  } else  if (str[0] == "CSV") {
+    return OUT_CSV;
+  } else  if (str[0] == "SEND") {
+    string ip, id;
+    if (isSending(str, ip, id)) {
+      output_details.ip_adress = ip;
+      output_details.id = id;
+      return OUT_SOCKET;
+    }
+    return OUT_NONE;
+  } else  if (str[0] == "POST") {
+    return OUT_POST;
+  } else {
+    return OUT_NONE;
+  }
 }
