@@ -113,7 +113,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
       // 2) get values
       output[arrayValue].value.clear();
       for (int currentSequence = 0; currentSequence < this->sequence_count; currentSequence++) {
-        tmp_value = data_lines[currentValue + (currentSequence*5)];
+        tmp_value = data_lines[currentValue + (currentSequence * this->sequence_length)];
         tmp_value.erase(0, tmp_value.find(val_pattern) + val_pattern.size());  
         tmp_value = tmp_value.substr(0, tmp_value.find("}"));
         

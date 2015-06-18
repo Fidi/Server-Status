@@ -372,6 +372,9 @@ void startDaemon(const string &configFile) {
     sys.interval.push_back(configuration->readInterval(sys_sections[i]));
     sys.stat.push_back(new SystemStats(sys_sections[i], configFile));
     
+    // if possible load from file
+    sys.stat[i]->loadFromFile();
+    
     syslog(LOG_DEBUG, "Main Thread: SystemStats class %s iniated.", sys_sections[i].c_str());
   }
   syslog(LOG_DEBUG, "Main Thread: All sys_stat objects created.");

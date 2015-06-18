@@ -129,6 +129,19 @@ void SystemStats::readStatus() {
 
 // this will load the contents from a json file into the array:
 bool SystemStats::loadFromFile(){
+  
+  switch (this->output) {
+    case OUT_JSON:  { // submit data to json class that handles everything from here on
+                      #if __JSON__
+                        if (this->json_class != nullptr) {
+                          this->json_class->loadJSONfromFile(this->list, this->array_size);
+                        }
+                      #endif
+                      break;
+                    }
+    default: break;
+  }
+  
   /*
   try {
     
