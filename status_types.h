@@ -58,6 +58,15 @@ enum _data_input_t {
 typedef enum _data_input_t data_input;
 
 
+// struct for client server exchange
+struct thread_value_t {
+  std::string section;					//what information shall be stored
+  std::string clientID;			    //random identification number that has to match
+  std::vector<double> value;		//values to be stored
+};
+typedef struct thread_value_t thread_value;
+
+
 
 
 // get string that should be read from config file

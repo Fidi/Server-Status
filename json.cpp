@@ -53,7 +53,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
     string val_pattern  = "\"value\" : ";
     
     // open JSON file and read matching lines into vector
-    ifstream file(this->json_filename);
+    ifstream file(this->filepath + this->json_filename);
     std::vector<string> data_lines;
     string str; 
     if (delta) { output[0].value.clear(); }
@@ -113,7 +113,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
       // 2) get values
       output[arrayValue].value.clear();
       for (int currentSequence = 0; currentSequence < this->sequence_count; currentSequence++) {
-        tmp_value = data_lines[currentValue + (currentSequence*5)];
+        tmp_value = data_lines[currentValue + (currentSequence * this->sequence_length)];
         tmp_value.erase(0, tmp_value.find(val_pattern) + val_pattern.size());  
         tmp_value = tmp_value.substr(0, tmp_value.find("}"));
         

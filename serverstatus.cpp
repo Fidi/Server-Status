@@ -15,6 +15,7 @@
 #include <limits>
 #include <signal.h>
 #include <unistd.h>
+#include <vector>
 
 #include <pthread.h>
 #include <mutex>
@@ -33,7 +34,7 @@ using namespace std;
 //===================================================================================
 
 // Version to check with possibly incompatible config files
-#define VERSION "v0.5-beta.2"
+#define VERSION "v0.6-beta"
 
 // location where the pid file shall be stored
 #define PID_FILE "/var/run/serverstatus.pid"
@@ -56,12 +57,6 @@ using namespace std;
 
 // Per default ServerStatus will look for a configuration file at these positions:
 const string PATH[] = {"/usr/local/etc/serverstatus.cfg", "/etc/serverstatus.cfg"};
-
-
-// Defines which systat classes will be created (a configuration file with 
-// working commands is still required!)
-#define SYS_COUNT 6
-const status SYS_TYPE[] = {CPU, Load, HDD, Mount, Memory, Network};
 
 //===================================================================================
 // END OF CONFIGURATION SECTION
@@ -153,7 +148,7 @@ void storeValueGlobal(vector<string> value) {
   int k = 0;
   int id = -1;
   while ((k < thread_Val.size()) && (id == -1)) {
-    if ((getTypeFromString(value[0]) == thread_Val[k].type) && (value[1] == thread_Val[k].clientID)) {
+    if ((value[0] == thread_Val[k].section) && (value[1] == thread_Val[k].clientID)) {
       id = k;
     }
     k++;
@@ -162,7 +157,7 @@ void storeValueGlobal(vector<string> value) {
   thread_value t;
   if (id == -1) {
     // create new entry
-    t.type = getTypeFromString(value[0]);
+    t.section = value[0];
     t.clientID = trim(value[1]);
     for (int i = 2; i < value.size(); i++) {
       t.value.push_back(atof(trim(value[i]).c_str()));
@@ -181,16 +176,16 @@ void storeValueGlobal(vector<string> value) {
 }
 
 
-thread_value readValueGlobal(status type, string clientID) {
+thread_value readValueGlobal(string section, string clientID) {
   
   pthread_mutex_lock(&thread_Mutex);
   
   thread_value s;
-  s.type = type;
+  s.section = section;
   // s.value stays empty if non is found
   
   for (int i = 0; i < thread_Val.size(); i++){
-    if ((type == thread_Val[i].type) && (clientID == thread_Val[i].clientID)) {
+    if ((section == thread_Val[i].section) && (clientID == thread_Val[i].clientID)) {
       // copy values into local variable
       for (int j = 0; j < thread_Val[i].value.size(); j++) {
         s.value.push_back(thread_Val[i].value[j]);
@@ -221,7 +216,7 @@ void *serverThread(void *arg) {
   
   
   // check if connection was created successfully 
-  if (c.socket == 0) { 
+  if (c.socket == -1) { 
     syslog(LOG_ERR, "Server Thread: Failed to create socket.");
     pthread_exit(0);
   }
@@ -233,21 +228,22 @@ void *serverThread(void *arg) {
   }
   
   
-  string input;
   while (loop) {
     // wait for input on the socket
+    string input;
+    
     try {
       if (!read_from_socket(c, input)) {
         continue;
       }
-      syslog(LOG_DEBUG, "%s", input.c_str());
+      syslog(LOG_NOTICE, "Server Thread: Incoming data: %s", input.c_str());
       
       // string is expected to have form such as "type, id, value1, value2, ..."
       vector<string> s = split(input, ',');
       storeValueGlobal(s);
       
-    } catch (int e) {
-      syslog(LOG_ERR, "Server Thread: An error occurred.");
+    } catch (int error) {
+      syslog(LOG_ERR, "Server Thread: An error [%d] occurred.", error);
     }
   }
   
@@ -299,27 +295,27 @@ void startDaemon(const string &configFile) {
   
   // create pid file
   if (!write_pid_file(PID_FILE)) {
-    syslog (LOG_ERR, "Error: pid file could not be created.");
+    syslog (LOG_ERR, "Main Thread: pid file could not be created.");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "pid file successfully written.");
+  syslog(LOG_DEBUG, "Main Thread: pid file successfully written.");
   
 
   // set sid
   sid = setsid();
   if (sid < 0) {
-    syslog (LOG_ERR, "Error: Could not create new sid for child process.");
+    syslog (LOG_ERR, "Main Thread: Could not create new sid for child process.");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "New SID for child process created.");
+  syslog(LOG_DEBUG, "Main Thread: New SID for child process created.");
 
 
   // change working directory to root dir
   if ((chdir("/")) < 0) {
-    syslog (LOG_ERR, "Error: Could not change working directory.");
+    syslog (LOG_ERR, "Main Thread: Could not change working directory.");
     exit(EXIT_FAILURE);
   }
-  syslog(LOG_DEBUG, "Changed working directory to root directory.");
+  syslog(LOG_DEBUG, "Main Thread: Changed working directory to root directory.");
 
 
   close(STDIN_FILENO);
@@ -327,20 +323,14 @@ void startDaemon(const string &configFile) {
   close(STDERR_FILENO);
 
 
-  
-  // variables
-  int i = 0;
-  int elapsedTime = 0;
-
-  time_t startTime,endTime;
 
   config *configuration = new config(configFile);
-  syslog(LOG_DEBUG, "Configuration file loaded.");
+  syslog(LOG_DEBUG, "Main Thread: Configuration file loaded.");
   
   
   // Version check
   if (configuration->readVersion() != VERSION) {
-    syslog (LOG_ERR, "Error: Configuration version does not match.");
+    syslog (LOG_ERR, "Main Thread: Configuration version does not match.");
     exit(EXIT_FAILURE);
   }
   
@@ -350,13 +340,12 @@ void startDaemon(const string &configFile) {
   memset(&term, 0, sizeof(struct sigaction));
   term.sa_handler = terminate;
   sigaction(SIGTERM, &term, NULL);
-  syslog(LOG_DEBUG, "SIGTERM handling added.");
+  syslog(LOG_DEBUG, "Main Thread: SIGTERM handling added.");
   
   
   // handle server/client mode
   pthread_t thread;
   pthread_attr_t thread_attr;
-  
   if (configuration->readApplicationType() == "server") {
     // server requires an additional thread that handles external input
    // string *port = new string(configuration->readServerPort());
@@ -374,54 +363,53 @@ void startDaemon(const string &configFile) {
 
 
 
-  
-  // sys_stat classes
+  // get all the different sys_stat sections and create their classes
+  vector<string> sys_sections = configuration->readSections();
   sys_stat sys;
-  for (int j = 0; j < SYS_COUNT; j++) {
+  for (int i = 0; i < sys_sections.size(); i++) {
     
     // read interval time and create class for each at top defined status type
-    int intervalTime = configuration->readInterval(getStringFromType(SYS_TYPE[j]).c_str());
-    if (configuration->readEnabled(getStringFromType(SYS_TYPE[j]).c_str()) == false) {
-      intervalTime = 0;
-    }
+    sys.interval.push_back(configuration->readInterval(sys_sections[i]));
+    sys.stat.push_back(new SystemStats(sys_sections[i], configFile));
     
-    sys.interval.push_back(intervalTime);
-    sys.stat.push_back(new SystemStats(SYS_TYPE[j], configFile));
-    // TODO: bug persists
-    //sys.stat[j]->loadFromFile();
-
-    syslog(LOG_DEBUG, "%s (%d) created.", getStringFromType(SYS_TYPE[j]).c_str(), j);
+    // if possible load from file
+    sys.stat[i]->loadFromFile();
+    
+    syslog(LOG_DEBUG, "Main Thread: SystemStats class %s iniated.", sys_sections[i].c_str());
   }
-  syslog(LOG_DEBUG, "All sys_stat objects created.");
+  syslog(LOG_DEBUG, "Main Thread: All sys_stat objects created.");
 		
-
+  
   // the loop fires once every LOOP_TIME seconds
+  int loopIteration = 0;
   while(loop) {
 	
     // get the duration of function calling...
-    startTime = clock();
+    time_t startTime = clock();
     
-    // for each status type read status if interval time is reached
-    for (int j = 0; j < SYS_COUNT; j++) {
-      // if interval = 0 -> disabled
-      if ((sys.interval[j] != 0)) {
-        if (i % sys.interval[j] == 0) { 
-          sys.stat[j]->readStatus(); 
-        }
+    
+    
+    // now do the actual system stat calculations
+    for (int i = 0; i < sys_sections.size(); i++) {
+      if ((sys.interval[i] != 0) && (loopIteration % sys.interval[i] == 0)) {
+        sys.stat[i]->readStatus();
+        syslog(LOG_DEBUG, "Main Thread: Triggered \"readStatus()\" in %s.", sys_sections[i].c_str());
       }
     }
+    
 	 
     // update counter
-    if (i < MAX_TIME) { i++; } else { i = 0; }
+    if (loopIteration < MAX_TIME) { loopIteration++; } else { loopIteration = 0; }
 			
-    syslog(LOG_DEBUG, "loop no. %d finished", i);
-			
+    syslog(LOG_DEBUG, "Main Thread: loop no. %d finished", loopIteration);
+
     // now calculate how long we have to sleep
-    endTime = clock();
-    elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
+    time_t endTime = clock();
+    int elapsedTime = (endTime - startTime)/CLOCKS_PER_SEC;
 			
     sleep(LOOP_TIME - elapsedTime);  // sleep the remaining time
   }
+  
   
   remove(PID_FILE);
   syslog(LOG_NOTICE, "Process terminated.");

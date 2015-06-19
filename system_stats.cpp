@@ -7,6 +7,7 @@
 #include <vector>
 #include <syslog.h>
 #include <cstring>
+#include <algorithm>
 
 #include "serverstatus.h"
 #include "system_stats.h"
@@ -29,150 +30,79 @@ using namespace std;
 *****************************************************************/
 
 // constructor: load config and init class
-SystemStats::SystemStats(status type, string configFile){
+SystemStats::SystemStats(string section, string configFile){
   // set the type (cpu, load, hdd, mount or memory):
-  this->type = type;
-  this->sConfigFile = configFile;
+  this->section = section;
+  this->configFile = configFile;
   
   // now init the generic class with the config file
-  if (loadConfigFile(configFile)) {
-    if ( this->delta) { this->array_size++; }
+  if (loadConfigFile(this->configFile)) {
     initArray();
-  } 
+  } else {
+    syslog(LOG_ERR, "SysStat %s: Failed to load config file [%s].", this->section.c_str(), this->configFile.c_str());
+  }
+  
+  #if __JSON__
+    if (this->output == OUT_JSON) {
+      json_class = new JSON(configFile, this->section);
+      syslog(LOG_NOTICE, "SysStats %s: JSON class created", this->section.c_str());
+    }
+  #endif
 }
 
 // destructor
 SystemStats::~SystemStats() {
   delete [] this->list;
+  
+  #if __JSON__
+    delete this->json_class;
+  #endif
 }
 
 
 
-
-// function to save the systems temperature into array
+// collect data from the input source specified in the config file
 void SystemStats::readStatus() {
-  // read requested values:
   std::vector<double> newVal;
-  
-  string ip;
-  string id;
-  
-  // distinguish between server | client | standalone
-  
-  if (isReceiving(ip, id)) {
-    // we are in server receive mode
-    thread_value t = readValueGlobal(this->type, id);
-    for (int i = 0; i < t.value.size(); i++) {
-      newVal.push_back(t.value[i]);
-    }
-  } else {
-    // we are in bash command mode
-    for (int i = 0; i < this->element_count; i++) {
-      string cmd = this->cmd[i];
-      const char* cmd_output = &getCmdOutput(&cmd[0])[0];
-      newVal.push_back(atof(cmd_output));
-    }
+  switch (this->input) {
+  	case IN_CMD:    { // run command and use output:
+                      for (int i = 0; i < this->element_count; i++) {
+                        string cmd = this->cmd[i];
+                        const char* cmd_output = &getCmdOutput(&cmd[0])[0];
+                        newVal.push_back(atof(cmd_output));
+                      }
+                      break;
+                    }
+    case IN_SOCKET: { // read data from socket:
+                      thread_value t = readValueGlobal(this->section, this->input_details.id);
+                      for (int i = 0; i < t.value.size(); i++) {
+                        newVal.push_back(t.value[i]);
+                      }
+                      break;
+                    } 
+    default: break;
   }
   
-  // if client mode send string to server
-  if (isSending(ip, id)) {
-    string msg = getStringFromType(this->type) + ", " + id;
-    for (int i = 0; i < newVal.size(); i++) {
-      msg = msg + ", " + to_string(newVal[i]);
-    }
-    connection c = create_socket(CLIENT, this->port, ip, this->ssl);
-    write_to_socket(c, msg);
-    destroy_socket(c);
-    newVal.clear();
-  } 
-  
-  // save values into array and write to file
   if (newVal.size() > 0) {
     setValue(getReadableTime(), newVal);
-    writeJSONFile();
+    saveData();
   }
 }
 
 
 // this will load the contents from a json file into the array:
-bool SystemStats::loadFromFile(){
-  try {
-    
-    // check for application mode and file existance 
-    if (((this->_output_details.size() >= 1) && (this->_output_details[0] != "JSON")) || (!file_exists(this->filepath + this->section + ".json"))) {
-      syslog(LOG_NOTICE, "Could not load existing json files.");
-      return false;
-    }
-    
-    
-    std::vector<string> lines;
-    string pattern0 = "{ \"title\" : ";
-    string pattern1 = "\"absolute\": \"";
-    
-    // find lines that have datapoints:
-    ifstream file(this->filepath + this->section + ".json");
-    string str; 
-    while (getline(file, str))
-    {
-      if (str.find(pattern0) != std::string::npos) {
-        lines.push_back(str);
-      } else if ((this->delta) && (str.find(pattern1) != std::string::npos)) {
-        str.erase(0, str.find(pattern1) + pattern1.size());  
-        str = str.substr(0, str.find("\","));
-        this->delta_abs_value.push_back(atof(str.c_str()));
-      }
-    }
-    
-    // now all data values are inside the lines-vector.
-    // check if their size matches the configuration:
-    int datasize = this->array_size * this->element_count; 
-    if (this->delta) { datasize -= this->element_count; }
-    if (lines.size() != datasize) {
-      syslog(LOG_WARNING, "%s: Could not load existing json files. Datapoints mismatch configuration file.", this->section.c_str());
-      return false;
-    }
-    
-    // for delta add the previous value for correct calculation
-    if (this->delta) {
-      setValue("-", this->delta_abs_value);
-    }
-    
-    // extract data and add them to the array
-    string tmp;
-    string tim;
-    string va;
-    string pattern2 = "\"value\" : ";
-    std::vector<double> val;
-    for (int j = 0; j < datasize/this->element_count; j++) {
-      // 1) get time:
-      tmp = lines[j];
-      tmp.erase(0, tmp.find(pattern0) + pattern0.size());
-      tim = tmp.substr(tmp.find("\"")+1, tmp.find("\"", 2)-1);
-      
-      // 2) get values:
-      val.clear();
-      for (int i = 0; i < this->element_count; i++) {
-        tmp = lines[j + (i*(this->array_size-1))];
-        tmp.erase(0, tmp.find(pattern2) + pattern2.size());  
-        va = tmp.substr(0, tmp.find("}"));
-        // if atof fails it will write "0"
-        if (this->delta) {
-          this->delta_abs_value[i] = this->delta_abs_value[i] + atof(va.c_str());
-          val.push_back(this->delta_abs_value[i]);
-        } else {
-          val.push_back(atof(va.c_str()));
-        }
-      }
-      
-      // 3) add record
-      setValue(tim, val);
-    }
-
-    return true;
-    
-  } catch (int e) {
-    return false;
-  } 
+void SystemStats::loadFromFile(){
+  switch (this->output) {
+    case OUT_JSON:    { // submit data to json class that handles everything from here on
+                        #if __JSON__
+                          if (this->json_class != nullptr) {
+                            this->json_class->loadJSONfromFile(this->list, this->array_size);
+                          }
+                        #endif
+                        break;
+                      }
+    default: break;
+  }
 }
 
 
@@ -188,51 +118,37 @@ bool SystemStats::loadConfigFile(string configFile) {
 	
   if (file_exists(configFile)) {
     
-	  this->section = getStringFromType(this->type);
+	  //this->section = getStringFromType(this->type);
     config *configuration = new config(configFile);
-
-    // read array sizes:
+    
+    // read array sizes (aka length of a sequence)
     this->array_size = configuration->readElementCount(this->section);
-
-    // read number of informations:
+    if (configuration->readDelta(this->section)) {
+      this->array_size++;
+    }
+    
+    // read number of sequences
     this->element_count = configuration->readSequenceCount(this->section);
     
-    this->input = IN_NONE;
-    
-    
-    
-    for (int i=1; i<=this->element_count; i++) {
-      this->cmd.push_back(configuration->readSequenceCommand(this->section, i-1));
-      this->description.push_back(configuration->readSequenceTitle(this->section, i-1));
-      this->color.push_back(configuration->readSequenceColor(this->section, i-1));
-    }
-
-    string _type = configuration->readJSONType(this->section);
-    if (_type == "line") {
-       this->json_type = JSON_LINE;
-    } else if (_type == "bar") {
-      this->json_type = JSON_BAR;
-    } else if (_type == "pie") {
-      this->json_type = JSON_PIE;
-    } else {
-      this->json_type = JSON_AUTO;
+    // get input commands
+    for (int i = 0; i < this->element_count; i++) {
+      this->cmd.push_back(configuration->readSequenceCommand(this->section, i));
     }
     
-    string s = configuration->readInput(this->section);
-    this->_input_details = split(s, ' ');
-    s = configuration->readOutput(this->section);
-    this->_output_details = split(s, ' ');
-    this->port = configuration->readServerPort();
-    this->ssl = configuration->readSSL();
+    // fill input/output sockets
+    int port = configuration->readServerPort();
+    this->input_details.port = port;
+    this->output_details.port = port;
+    bool ssl = configuration->readSSL();
+    this->input_details.ssl = ssl;
+    this->output_details.ssl = ssl;
     
-    this->delta = configuration->readDelta(this->section);
+    // get input and output 
+    this->input = getInputFromString(configuration->readInput(this->section));
+    this->output = getOutputFromString(configuration->readOutput(this->section));
     
-    this->refresh_interval = configuration->readJSONRefreshInterval(this->section);
-
-    this->interval = configuration->readInterval(this->section);
-    this->filepath = configuration->readFilepath();
-    
-    syslog(LOG_DEBUG, "All configuration loaded");
+    delete configuration;
+    syslog(LOG_DEBUG, "SysStats %s: All configuration loaded", this->section.c_str());
     
     return true;
   }
@@ -265,11 +181,10 @@ void SystemStats::initArray() {
 
 
 
-// Array setter:
-void SystemStats::setValue(std::string time, std::vector<double> value) {
+// add collected data to ring array
+bool SystemStats::setValue(std::string time, std::vector<double> value) {
 	
   if (value.size() == this->element_count) {
-    
     // save timestamp:
     this->list[this->list_position].timestamp = time;
 
@@ -280,137 +195,141 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
     }
 
     // move pointer:
-    if (this->list_position < this->array_size - 1) {
-      this->list_position++;
-    } else {
-      this->list_position = 0;
-    }
+    Inc(this->list_position);
+    return true;
+  } else {
+    syslog(LOG_ERR, "SysStats %s: Could not add array entry. Sizes do not match.", this->section.c_str());
+    return false;
+  }
+}
 
+
+// use the collected data in the way the config file specifies
+void SystemStats::saveData() {
+  switch (this->output) {
+    case OUT_JSON:    { // submit data to json class that handles everything from here on
+                        #if __JSON__
+                          if (this->json_class != nullptr) {
+                            this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
+                          } else {
+                            syslog(LOG_ERR, "SysStats %s: failed to write to JSON file. Class not initiated.", this->section.c_str());
+                          }
+                        #endif
+                        break;
+                      }
+    case OUT_SOCKET:  { // submit data to socket connection:
+                        string msg = this->section + ", " + this->output_details.id;
+                        int prev_position = this->list_position;
+                        Dec(prev_position);
+                        for (int i = 0; i < this->list[prev_position].value.size(); i++) {
+                          msg = msg + ", " + to_string(this->list[prev_position].value[i]);
+                        }
+                        try {
+                          connection c = create_socket(CLIENT, this->output_details.port, this->output_details.ip_address, this->output_details.ssl);
+                          write_to_socket(c, msg);
+                          destroy_socket(c);
+                        } catch (int errorCode) {
+                          syslog(LOG_ERR, "SysStats %s: Connection to socket failed [#%d].", this->section.c_str(), errorCode);
+                        }                  
+                        break;
+                      }
+    default: break;
   }
 }
 
 
 
-
-bool SystemStats::isReceiving(string &sender_ip, string &clientID) {
+bool SystemStats::isReceiving(vector<string> input, string &sender_ip, string &clientID) {
   // first do some syntax checking
-  if (this->_input_details.size() != 5) {
+  if (input.size() != 5) {
     return false;
   } else {
-    if ((this->_input_details[0] != "RECEIVE") || (this->_input_details[1] != "FROM") || (this->_input_details[3] != "ID")) {
+    if ((input[0] != "RECEIVE") || (input[1] != "FROM") || (input[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      sender_ip = this->_input_details[2];
-      clientID = this->_input_details[4];
+      sender_ip = input[2];
+      clientID = input[4];
       return true;
     }
   }
 }
 
-bool SystemStats::isSending(string &receiver_ip, string &clientID){
+bool SystemStats::isSending(vector<string> output, string &receiver_ip, string &clientID){
   // first do some syntax checking
-  if (this->_output_details.size() != 5) {
+  if (output.size() != 5) {
     return false;
   } else {
-    if ((this->_output_details[0] != "SEND") || (this->_output_details[1] != "TO") || (this->_output_details[3] != "ID")) {
+    if ((output[0] != "SEND") || (output[1] != "TO") || (output[3] != "ID")) {
       return false;
     } else {
       // distribution has correct syntax
-      receiver_ip = this->_output_details[2];
-      clientID = this->_output_details[4];
+      receiver_ip = output[2];
+      clientID = output[4];
       return true;
     }
   } 
 }
 
 
-
-
+// get next value of ring-array
 void SystemStats::Inc(int &value) {
-  if (value < this->array_size) { value++; }
+  if (value < this->array_size - 1) { value++; }
   else { value = 0; }
+}
+
+// get previous value of ring-array
+void SystemStats::Dec(int &value) {
+  if (value == 0) { value = this->array_size - 1; }
+  else { value--; }
 }
 
 
 
-// generic json export function
-void SystemStats::writeJSONFile() {
-  ofstream out;
-  out.open(this->filepath + this->section + ".json");
-  out << "{ \n";
-  out << "  \"graph\" : { \n";
-  out << "  \"title\" : \"" + this->section + "\", \n";
+// parse string to get enum input type
+data_input SystemStats::getInputFromString(string input) {
+  string s = input;
+  std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+  vector<string> str = split(s, ' ');
   
-  string graphtype;
-  switch (this->json_type) {
-    case JSON_BAR: graphtype = "bar";  break;
-    case JSON_PIE: graphtype = "pie";  break;
-    default:       graphtype = "line"; break;
-  }  
-  out << "  \"type\" : \"" + graphtype + "\", \n";
-  out << "  \"refreshEveryNSeconds\" : " << this->refresh_interval << ", \n";
-  
-  out << "  \"datasequences\" : [ \n";
-  
-  // for every load value print a line:
-  for (int j = 0; j < this->element_count; j++) {
-	
-    out << "      {";
-    out << "      \"title\": \"" << this->description[j] << + "\", \n";
-    if (this->color[j] != "-") {
-      out << "             \"color\": \"" << this->color[j] << + "\", \n";
+  // first check one word strings
+  if (str[0] == "CMD") {
+    return IN_CMD;
+  } else  if (str[0] == "RECEIVE") {
+    string ip, id;
+    if (isReceiving(str, ip, id)) {
+      input_details.ip_address = ip;
+      input_details.id = id;
+      return IN_SOCKET;
     }
-    
-    
-    double val;
-    int start_position = this->list_position;
-    if (this->delta) { Inc(start_position); }
-    
-    if (this->delta) {
-      out << "             \"absolute\": \"" << this->list[this->list_position].value[j] << + "\", \n";
-    }
-    
-    out << "             \"datapoints\" : [ \n";
-
-
-    for (int i = start_position; i < this->array_size; i++) {
-      val = this->list[i].value[j];
-      if (this->delta) { if (i == 0) { val -= this->list[this->array_size-1].value[j]; } else { val -= this->list[i-1].value[j]; } }
-      if ((this->list_position == 0) && (i == this->array_size-1)) {
-        out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "} \n";
-      } else {
-        out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "}, \n";
-      }
-      
-    }
-
-    if (this->list_position != 0) {
-      // print the remaining elements
-      for (int i=0; i < this->list_position; i++) {
-        val = this->list[i].value[j];
-        if (this->delta) { if (i == 0) { val -= this->list[this->array_size-1].value[j]; } else { val -= this->list[i-1].value[j]; } }
-        if (i == this->list_position - 1) {
-          out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "} \n";
-        } else {
-          out << "               { \"title\" : \"" + this->list[i].timestamp + "\", \"value\" : " + to_string(val) + "}, \n";
-        }
-        
-      }
-    }
-
-    out << "             ] \n";
-    if (j == this->element_count - 1) {
-	  out << "      } \n";
-    } else {
-      out << "      }, \n";
-    }
-
+    return IN_NONE;
+  } else {
+    return IN_NONE;
   }
+}
+
+// parse string to get enum output type
+data_output SystemStats::getOutputFromString(string output) {
+  string s = output;
+  std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+  vector<string> str = split(s, ' ');
   
-  out << "  ] \n";
-  out << "  } \n";
-  out << "} \n";
-  
-  out.close();
+  // first check one word strings
+  if (str[0] == "JSON") {
+    return OUT_JSON;
+  } else  if (str[0] == "CSV") {
+    return OUT_CSV;
+  } else  if (str[0] == "SEND") {
+    string ip, id;
+    if (isSending(str, ip, id)) {
+      output_details.ip_address = ip;
+      output_details.id = id;
+      return OUT_SOCKET;
+    }
+    return OUT_NONE;
+  } else  if (str[0] == "POST") {
+    return OUT_POST;
+  } else {
+    return OUT_NONE;
+  }
 }

@@ -103,7 +103,7 @@ void destroy_socket(connection &con) {
 
 
 bool read_from_socket(connection &con, string &input) {
-  if (con.socket == 0) { return false; }
+  if (con.socket == -1) { return false; }
   
   #if __OPENSSL__
     input = read_input(con.socket, con.ctx);
@@ -117,7 +117,7 @@ bool read_from_socket(connection &con, string &input) {
 
 
 bool write_to_socket(connection &con, string msg) {
-  if (con.socket == 0) { return false; }
+  if (con.socket == -1) { return false; }
   
   #if __OPENSSL__
     write_output(con.socket, msg, con.ctx);
@@ -148,7 +148,7 @@ int listen_on_tcp(int port) {
 
   if ((status = getaddrinfo(NULL, to_string(port).c_str(), &hints, &servinfo)) != 0) {
     syslog(LOG_ERR, "Communication: getaddrinfo failed: %s", gai_strerror(status));
-    return 0;
+    return -1;
   }
 
   int sockfd;
@@ -168,7 +168,7 @@ int listen_on_tcp(int port) {
 
   if (l == NULL) {
     syslog(LOG_ERR, "Communication: Creating socket failed.");
-    return 0;
+    return -1;
   }
 
   freeaddrinfo(servinfo);
@@ -177,7 +177,7 @@ int listen_on_tcp(int port) {
   if (listen(sockfd, BACKLOG) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to listen on socket.");
-    return 0;
+    return -1;
   }
   
   return sockfd;
@@ -197,7 +197,7 @@ int connect_to_tcp(int port, string host_ip) {
   
   if ((status = getaddrinfo(host_ip.c_str(), to_string(port).c_str(), &hints, &servinfo)) != 0) {
     syslog(LOG_ERR, "Communication: getaddrinfo failed: %s", gai_strerror(status));
-    return 0;
+    return -1;
   }
 
 
@@ -212,14 +212,14 @@ int connect_to_tcp(int port, string host_ip) {
 
   if (l == NULL) {
     syslog(LOG_ERR, "Communication: Creating socket failed.");
-    return 0;
+    return -1;
   }
 
 
   if (connect(sockfd, l->ai_addr, l->ai_addrlen) == -1) {
     close(sockfd);
     syslog(LOG_ERR, "Communication: Failed to connect to socket.");
-    return 0;
+    return -1;
   }
   
   freeaddrinfo(servinfo);
