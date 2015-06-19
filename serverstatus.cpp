@@ -148,7 +148,7 @@ void storeValueGlobal(vector<string> value) {
   int k = 0;
   int id = -1;
   while ((k < thread_Val.size()) && (id == -1)) {
-    if ((getTypeFromString(value[0]) == thread_Val[k].type) && (value[1] == thread_Val[k].clientID)) {
+    if ((value[0] == thread_Val[k].section) && (value[1] == thread_Val[k].clientID)) {
       id = k;
     }
     k++;
@@ -157,7 +157,7 @@ void storeValueGlobal(vector<string> value) {
   thread_value t;
   if (id == -1) {
     // create new entry
-    t.type = getTypeFromString(value[0]);
+    t.section = value[0];
     t.clientID = trim(value[1]);
     for (int i = 2; i < value.size(); i++) {
       t.value.push_back(atof(trim(value[i]).c_str()));
@@ -176,16 +176,16 @@ void storeValueGlobal(vector<string> value) {
 }
 
 
-thread_value readValueGlobal(status type, string clientID) {
+thread_value readValueGlobal(string section, string clientID) {
   
   pthread_mutex_lock(&thread_Mutex);
   
   thread_value s;
-  s.type = type;
+  s.section = section;
   // s.value stays empty if non is found
   
   for (int i = 0; i < thread_Val.size(); i++){
-    if ((type == thread_Val[i].type) && (clientID == thread_Val[i].clientID)) {
+    if ((section == thread_Val[i].section) && (clientID == thread_Val[i].clientID)) {
       // copy values into local variable
       for (int j = 0; j < thread_Val[i].value.size(); j++) {
         s.value.push_back(thread_Val[i].value[j]);
@@ -236,7 +236,7 @@ void *serverThread(void *arg) {
       if (!read_from_socket(c, input)) {
         continue;
       }
-      syslog(LOG_DEBUG, "Server Thread: Incoming data: %s", input.c_str());
+      syslog(LOG_NOTICE, "Server Thread: Incoming data: %s", input.c_str());
       
       // string is expected to have form such as "type, id, value1, value2, ..."
       vector<string> s = split(input, ',');

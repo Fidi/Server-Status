@@ -16,7 +16,7 @@
 // socket structure 
 struct _socket_details_t {
   int port;
-  std::string ip_adress;
+  std::string ip_address;
   bool ssl;
   std::string id;
 };
@@ -32,7 +32,7 @@ class SystemStats
     ~SystemStats();
     
     void readStatus();
-    bool loadFromFile();
+    void loadFromFile();
 
   private:
     std::string configFile;
@@ -66,6 +66,9 @@ class SystemStats
     
     bool isReceiving(std::vector<std::string> input, std::string &sender_ip, std::string &clientID);
     bool isSending(std::vector<std::string> output, std::string &receiver_ip, std::string &clientID);
+    
+    void Inc(int &value);
+    void Dec(int &value);
     
     data_input getInputFromString(std::string input);
     data_output getOutputFromString(std::string output);
