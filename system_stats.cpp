@@ -123,8 +123,7 @@ bool SystemStats::loadConfigFile(string configFile) {
     
     // read array sizes (aka length of a sequence)
     this->array_size = configuration->readElementCount(this->section);
-    if (configuration->readDelta(this->section)) { 
-      syslog(LOG_DEBUG, "SysStats %s: use delta.", this->section.c_str());
+    if (configuration->readDelta(this->section)) {
       this->array_size++;
     }
     
@@ -149,7 +148,7 @@ bool SystemStats::loadConfigFile(string configFile) {
     this->output = getOutputFromString(configuration->readOutput(this->section));
     
     delete configuration;
-    syslog(LOG_NOTICE, "SysStats %s: All configuration loaded", this->section.c_str());
+    syslog(LOG_DEBUG, "SysStats %s: All configuration loaded", this->section.c_str());
     
     return true;
   }
@@ -183,10 +182,9 @@ void SystemStats::initArray() {
 
 
 // add collected data to ring array
-void SystemStats::setValue(std::string time, std::vector<double> value) {
+bool SystemStats::setValue(std::string time, std::vector<double> value) {
 	
   if (value.size() == this->element_count) {
-    
     // save timestamp:
     this->list[this->list_position].timestamp = time;
 
@@ -198,6 +196,10 @@ void SystemStats::setValue(std::string time, std::vector<double> value) {
 
     // move pointer:
     Inc(this->list_position);
+    return true;
+  } else {
+    syslog(LOG_ERR, "SysStats %s: Could not add array entry. Sizes do not match.", this->section.c_str());
+    return false;
   }
 }
 
@@ -209,6 +211,8 @@ void SystemStats::saveData() {
                         #if __JSON__
                           if (this->json_class != nullptr) {
                             this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
+                          } else {
+                            syslog(LOG_ERR, "SysStats %s: failed to write to JSON file. Class not initiated.", this->section.c_str());
                           }
                         #endif
                         break;
@@ -220,10 +224,13 @@ void SystemStats::saveData() {
                         for (int i = 0; i < this->list[prev_position].value.size(); i++) {
                           msg = msg + ", " + to_string(this->list[prev_position].value[i]);
                         }
-                        connection c = create_socket(CLIENT, this->output_details.port, this->output_details.ip_address, this->output_details.ssl);
-                        write_to_socket(c, msg);
-                        destroy_socket(c);
-                        
+                        try {
+                          connection c = create_socket(CLIENT, this->output_details.port, this->output_details.ip_address, this->output_details.ssl);
+                          write_to_socket(c, msg);
+                          destroy_socket(c);
+                        } catch (int errorCode) {
+                          syslog(LOG_ERR, "SysStats %s: Connection to socket failed [#%d].", this->section.c_str(), errorCode);
+                        }                  
                         break;
                       }
     default: break;

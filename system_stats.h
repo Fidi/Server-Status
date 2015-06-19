@@ -61,7 +61,7 @@ class SystemStats
     bool loadConfigFile(std::string configFile);
     void initArray();
 
-    void setValue(std::string time, std::vector<double> value);
+    bool setValue(std::string time, std::vector<double> value);
     void saveData();
     
     bool isReceiving(std::vector<std::string> input, std::string &sender_ip, std::string &clientID);

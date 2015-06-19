@@ -37,28 +37,28 @@ class config
 		
 		std::vector<std::string> readSections();
 		
-		// returns basic configuration for one type:
+		// returns basic configuration for one :
 		std::string readType(std::string section);
-		bool readEnabled(std::string type);		
-		int readInterval(std::string type);		
-		int readElementCount(std::string type);
-		bool readDelta(std::string type);
-		std::string readInput(std::string type);
-		std::string readOutput(std::string type);
+		bool readEnabled(std::string section);		
+		int readInterval(std::string section);		
+		int readElementCount(std::string section);
+		bool readDelta(std::string section);
+		std::string readInput(std::string section);
+		std::string readOutput(std::string section);
 		
-		// returns JSON header informations for one type:
-		std::string readJSONFilename(std::string type);
-		std::string readJSONTitle(std::string type);
-		std::string readJSONType(std::string type);
-		int readJSONRefreshInterval(std::string type);
-		int readJSONyAxisMinimum(std::string type);
-		int readJSONyAxisMaximum(std::string type);
+		// returns JSON header informations for one section:
+		std::string readJSONFilename(std::string section);
+		std::string readJSONTitle(std::string section);
+		std::string readJSONType(std::string );
+		int readJSONRefreshInterval(std::string );
+		int readJSONyAxisMinimum(std::string );
+		int readJSONyAxisMaximum(std::string );
 		
 		// returns sequence informations
-		int readSequenceCount(std::string type);
-		std::string readSequenceCommand(std::string type, int num);
-		std::string readSequenceTitle(std::string type, int num);
-		std::string readSequenceColor(std::string type, int num);
+		int readSequenceCount(std::string );
+		std::string readSequenceCommand(std::string , int num);
+		std::string readSequenceTitle(std::string , int num);
+		std::string readSequenceColor(std::string , int num);
 		
 		// other stuff:
 		void showErrorLog();
