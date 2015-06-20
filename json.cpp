@@ -78,7 +78,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
     // check if line count matches the configuration:
     int datasize = this->sequence_length * this->sequence_count;
     //if (this->delta) { datasize -= this->element_count; }
-    if (data_lines.size() != datasize) {
+    if ((data_lines.size() != datasize) && (array_size != data_lines.size())) {
       syslog(LOG_WARNING, "JSON %s: Could not load existing JSON file [%s%s]. Datapoints mismatch configuration file.", this->section.c_str(), this->filepath.c_str(), this->json_filename.c_str());
       return false;
     }
