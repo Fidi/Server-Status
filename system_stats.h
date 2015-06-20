@@ -2,12 +2,16 @@
 #define _systat_hpp_
 
 #define __JSON__ true
+#define __CSV__ true
 
 #include <time.h>
 #include "status_types.h"
 
 #if __JSON__
   #include "json.h"
+#endif
+#if __CSV__
+  #include "csv.h"
 #endif
 
 
@@ -55,6 +59,9 @@ class SystemStats
     
     #if __JSON__
       JSON *json_class = nullptr;
+    #endif
+    #if __CSV__
+      CSV *csv_class = nullptr;
     #endif
 
 

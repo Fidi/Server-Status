@@ -19,6 +19,9 @@
 #if __JSON__
   #include "json.h"
 #endif
+#if __CSV__
+  #include "csv.h"
+#endif
 
 using namespace std;
 
@@ -48,6 +51,13 @@ SystemStats::SystemStats(string section, string configFile){
       syslog(LOG_NOTICE, "SysStats %s: JSON class created", this->section.c_str());
     }
   #endif
+  
+  #if __CSV__
+    if (this->output == OUT_CSV) {
+      csv_class = new CSV(configFile, this->section);
+      syslog(LOG_NOTICE, "SysStats %s: CSV class created", this->section.c_str());
+    }
+  #endif
 }
 
 // destructor
@@ -56,6 +66,9 @@ SystemStats::~SystemStats() {
   
   #if __JSON__
     delete this->json_class;
+  #endif
+  #if __CSV__
+    delete this->csv_class;
   #endif
 }
 
@@ -97,6 +110,14 @@ void SystemStats::loadFromFile(){
                         #if __JSON__
                           if (this->json_class != nullptr) {
                             this->json_class->loadJSONfromFile(this->list, this->array_size);
+                          }
+                        #endif
+                        break;
+                      }
+    case OUT_CSV:     { // submit data to json class that handles everything from here on
+                        #if __CSV__
+                          if (this->csv_class != nullptr) {
+                            this->csv_class->loadCSVfromFile(this->list, this->array_size);
                           }
                         #endif
                         break;
@@ -213,6 +234,16 @@ void SystemStats::saveData() {
                             this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
                           } else {
                             syslog(LOG_ERR, "SysStats %s: failed to write to JSON file. Class not initiated.", this->section.c_str());
+                          }
+                        #endif
+                        break;
+                      }
+    case OUT_CSV:     { // submit data to json class that handles everything from here on
+                        #if __CSV__
+                          if (this->csv_class != nullptr) {
+                            this->csv_class->writeCSVtoFile(this->list, this->array_size, this->list_position);
+                          } else {
+                            syslog(LOG_ERR, "SysStats %s: failed to write to CSV file. Class not initiated.", this->section.c_str());
                           }
                         #endif
                         break;

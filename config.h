@@ -46,6 +46,12 @@ class config
 		std::string readInput(std::string section);
 		std::string readOutput(std::string section);
 		
+		// returns sequence informations
+		int readSequenceCount(std::string );
+		std::string readSequenceCommand(std::string , int num);
+		std::string readSequenceTitle(std::string , int num);
+		std::string readSequenceColor(std::string , int num);
+		
 		// returns JSON header informations for one section:
 		std::string readJSONFilename(std::string section);
 		std::string readJSONTitle(std::string section);
@@ -54,11 +60,9 @@ class config
 		int readJSONyAxisMinimum(std::string );
 		int readJSONyAxisMaximum(std::string );
 		
-		// returns sequence informations
-		int readSequenceCount(std::string );
-		std::string readSequenceCommand(std::string , int num);
-		std::string readSequenceTitle(std::string , int num);
-		std::string readSequenceColor(std::string , int num);
+		// CSV related information
+		std::string readCSVFilename(std::string section);
+		std::string readCSVTitle(std::string section);
 		
 		// other stuff:
 		void showErrorLog();

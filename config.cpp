@@ -52,15 +52,30 @@ bool config::loadConfig(string filename) {
 
 
 
+/*****************************************************************
+**
+**  Application settings
+**
+*****************************************************************/
 string config::readVersion() {
-	return this->ConfigFile.lookup("version");
+	try {
+		return this->ConfigFile.lookup("version");
+	} catch (const SettingNotFoundException &nfound) {
+		return "version_error";
+	}
 }
 string config::readFilepath() {
-	string path = this->ConfigFile.lookup("filepath");
-	if(path.at(path.length()-1) != '/'){
-		path += "/";
+	try {
+		string path = this->ConfigFile.lookup("filepath");
+		if (path.length() == 0) {
+			return "/usr/local/serverstatus/"; 
+		} else if(path.at(path.length()-1) != '/'){
+			path += "/";
+		}
+		return path;
+	} catch (const SettingNotFoundException &nfound) {
+		return "/usr/local/serverstatus/";
 	}
-	return path;
 }
 
 
@@ -71,17 +86,7 @@ string config::readApplicationType() {
 		s.lookupValue("application", app_type);
 		return app_type;
 	} catch (const SettingNotFoundException &nfound) {
-		return "NONE";
-	}
-}
-string config::readServerAddress() {
-	try {
-		const Setting &s = this->ConfigFile.getRoot()["distribution"];
-		string s_addr;
-		s.lookupValue("server_adress", s_addr);
-		return s_addr;
-	} catch (const SettingNotFoundException &nfound) {
-		return "127.0.0.1";
+		return "server";
 	}
 }
 int config::readServerPort() {
@@ -130,6 +135,11 @@ string config::readKeyFile(){
 
 
 
+/*****************************************************************
+**
+**  Section settings
+**
+*****************************************************************/
 vector<string> config::readSections() {
 	vector<string> v;
 	
@@ -219,6 +229,61 @@ string config::readOutput(string section) {
 
 
 
+/*****************************************************************
+**
+**  Sequence settings
+**
+*****************************************************************/
+int config::readSequenceCount(string section){
+	int count = 0;
+	try {
+		const Setting &sec1 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["cmd"];
+		if (sec1.getLength() > count) { count = sec1.getLength(); }	
+	} catch (const SettingNotFoundException &nfound) {}
+	try {		
+		const Setting &sec2 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["title"];
+		if (sec2.getLength() > count) { count = sec2.getLength(); }	
+	}	catch (const SettingNotFoundException &nfound) {}
+	try {		
+		const Setting &sec3 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["color"];
+		if (sec3.getLength() > count) { count = sec3.getLength(); }	
+	}	catch (const SettingNotFoundException &nfound) {}
+	
+	return count;
+}
+string config::readSequenceCommand(string section, int num){
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["cmd"];
+		return s[num];
+	} catch (const SettingNotFoundException &nfound) {
+		return "echo 0";
+	}
+}
+string config::readSequenceTitle(string section, int num){
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["title"];
+		return s[num];
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
+}
+string config::readSequenceColor(string section, int num){
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["colors"];
+		return s[num];
+	} catch (const SettingNotFoundException &nfound) {
+		return "-";
+	}
+}
+
+
+
+
+/*****************************************************************
+**
+**  JSON settings
+**
+*****************************************************************/
 string config::readJSONFilename(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"];
@@ -285,47 +350,42 @@ int config::readJSONyAxisMaximum(string section){
 
 
 
-
-int config::readSequenceCount(string section){
-	int count = 0;
+/*****************************************************************
+**
+**  CSV settings
+**
+*****************************************************************/
+string config::readCSVFilename(string section) {
 	try {
-		const Setting &sec1 = this->ConfigFile.getRoot()[section.c_str()]["cmd"];
-		if (sec1.getLength() > count) { count = sec1.getLength(); }		
-		const Setting &sec2 = this->ConfigFile.getRoot()[section.c_str()]["json"]["sequence"]["title"];
-		if (sec2.getLength() > count) { count = sec2.getLength(); }	
-		return count;
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["csv"];
+		string filename;
+		s.lookupValue("filename", filename);
+		if (filename.substr(filename.find_last_of(".") + 1) != "csv") {
+			filename += ".csv";
+		}
+		return filename;
 	} catch (const SettingNotFoundException &nfound) {
-		return count;
+		return section + ".csv";
 	}
 }
-string config::readSequenceCommand(string section, int num){
+string config::readCSVTitle(string section) {
 	try {
-		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["cmd"];
-		return s[num];
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["csv"];
+		string title;
+		s.lookupValue("title", title);
+		return title;
 	} catch (const SettingNotFoundException &nfound) {
-		return "echo 0";
-	}
-}
-string config::readSequenceTitle(string section, int num){
-	try {
-		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["sequence"]["title"];
-		return s[num];
-	} catch (const SettingNotFoundException &nfound) {
-		return "-";
-	}
-}
-string config::readSequenceColor(string section, int num){
-	try {
-		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["sequence"]["colors"];
-		return s[num];
-	} catch (const SettingNotFoundException &nfound) {
-		return "-";
+		return "No title found";
 	}
 }
 
 
 
-
+/*****************************************************************
+**
+**  Other stuff
+**
+*****************************************************************/
 void config::showErrorLog(){
 	printf("Syntax and I/O check: ");
 	if (this->ErrorCode != "") {
