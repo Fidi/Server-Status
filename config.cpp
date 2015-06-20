@@ -238,13 +238,18 @@ int config::readSequenceCount(string section){
 	int count = 0;
 	try {
 		const Setting &sec1 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["cmd"];
-		if (sec1.getLength() > count) { count = sec1.getLength(); }		
+		if (sec1.getLength() > count) { count = sec1.getLength(); }	
+	} catch (const SettingNotFoundException &nfound) {}
+	try {		
 		const Setting &sec2 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["title"];
 		if (sec2.getLength() > count) { count = sec2.getLength(); }	
-		return count;
-	} catch (const SettingNotFoundException &nfound) {
-		return count;
-	}
+	}	catch (const SettingNotFoundException &nfound) {}
+	try {		
+		const Setting &sec3 = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["color"];
+		if (sec3.getLength() > count) { count = sec3.getLength(); }	
+	}	catch (const SettingNotFoundException &nfound) {}
+	
+	return count;
 }
 string config::readSequenceCommand(string section, int num){
 	try {

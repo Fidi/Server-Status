@@ -23,6 +23,7 @@ class CSV
     int sequence_count;
     int sequence_length;
 
+    std::string csv_title;
     std::vector<std::string> sequence_title;
     std::vector<std::string> sequence_color;
 

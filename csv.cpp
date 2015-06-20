@@ -93,7 +93,43 @@ bool CSV::loadCSVfromFile(data output[], size_t array_size) {
 
 // write data array to json file
 bool CSV::writeCSVtoFile(data output[], size_t array_size, int position_pointer) {
-  return false;
+  try {
+    ofstream out;
+    out.open(this->filepath + "test.csv");
+    
+    // print header
+    out << this->csv_title << ";";
+    for (int currentSequence = 0; currentSequence < this->sequence_count; currentSequence++) {
+      out << this->sequence_title[currentSequence] << ";";
+    }
+    out << "\n";
+    
+    
+    int current_position = position_pointer;
+    for (int currentEntry = 0; currentEntry < array_size; currentEntry++) {
+      
+      // avoid seg-fault
+      if (current_position >= array_size) { continue; }
+      
+      out << output[current_position].timestamp << ";";
+      for (int currentSequence = 0; currentSequence < this->sequence_count; currentSequence++) {
+        double val = output[current_position].value[currentSequence];
+        out << val << ";";
+      }
+      out << "\n";
+      
+      Inc(current_position, array_size);
+    }
+    
+    out.close();
+    
+    syslog(LOG_DEBUG, "CSV %s: File [%s%s] successfully written.", this->section.c_str(), this->filepath.c_str(), this->csv_filename.c_str());
+    return true;
+    
+  } catch (int error) {
+    syslog(LOG_ERR, "CSV %s: Error writing CSV file [%s%s]. Errorcode: #%d.", this->section.c_str(), this->filepath.c_str(), this->csv_filename.c_str(), error);
+    return false;
+  }
 }
 
 
@@ -119,6 +155,7 @@ bool CSV::loadConfigFile(string configFile){
     this->sequence_count = configuration->readSequenceCount(this->section);
     this->sequence_length = configuration->readElementCount(this->section);
     
+    this->csv_title = configuration->readCSVTitle(this->section);
     for (int i = 0; i < this->sequence_count; i++) {
       this->sequence_title.push_back(configuration->readSequenceTitle(this->section, i));
       this->sequence_color.push_back(configuration->readSequenceColor(this->section, i));
