@@ -49,13 +49,14 @@ bool CSV::loadCSVfromFile(data output[], size_t array_size) {
     
     ifstream file(this->filepath + this->csv_filename);
     std::vector<string> data_lines;
-    string str; 
-    if (delta) { output[0].value.clear(); }
+    string str;
     int lineNr = 0;
+    string col_pattern  = "Colors;";
     while (getline(file, str))
     {
       lineNr++;
       if (lineNr == 1) { continue; }
+      if (str.find(col_pattern) != std::string::npos) { continue; }
       
       data_lines.push_back(str);
     }
@@ -95,7 +96,7 @@ bool CSV::loadCSVfromFile(data output[], size_t array_size) {
 bool CSV::writeCSVtoFile(data output[], size_t array_size, int position_pointer) {
   try {
     ofstream out;
-    out.open(this->filepath + "test.csv");
+    out.open(this->filepath + this->csv_filename);
     
     // print header
     out << this->csv_title << ";";
@@ -104,7 +105,7 @@ bool CSV::writeCSVtoFile(data output[], size_t array_size, int position_pointer)
     }
     out << "\n";
     
-    
+    // print values
     int current_position = position_pointer;
     for (int currentEntry = 0; currentEntry < array_size; currentEntry++) {
       
@@ -120,6 +121,13 @@ bool CSV::writeCSVtoFile(data output[], size_t array_size, int position_pointer)
       
       Inc(current_position, array_size);
     }
+    
+    // print colors
+    out << "Colors;";
+    for (int currentSequence = 0; currentSequence < this->sequence_count; currentSequence++) {
+      out << this->sequence_color[currentSequence] + ";";
+    }
+    out << "\n";
     
     out.close();
     
