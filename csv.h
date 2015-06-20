@@ -26,9 +26,6 @@ class CSV
     std::string csv_title;
     std::vector<std::string> sequence_title;
     std::vector<std::string> sequence_color;
-
-    bool delta;
-    std::vector<double> absolute_value;
     
     bool loadConfigFile(std::string configFile);
     

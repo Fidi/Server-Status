@@ -142,10 +142,17 @@ bool SystemStats::loadConfigFile(string configFile) {
 	  //this->section = getStringFromType(this->type);
     config *configuration = new config(configFile);
     
+    // get input and output 
+    this->input = getInputFromString(configuration->readInput(this->section));
+    this->output = getOutputFromString(configuration->readOutput(this->section));
+    
     // read array sizes (aka length of a sequence)
     this->array_size = configuration->readElementCount(this->section);
     if (configuration->readDelta(this->section)) {
-      this->array_size++;
+      // right now only JSON supports delta
+      if (this->output == OUT_JSON) {
+        this->array_size++;
+      }
     }
     
     // read number of sequences
@@ -163,10 +170,6 @@ bool SystemStats::loadConfigFile(string configFile) {
     bool ssl = configuration->readSSL();
     this->input_details.ssl = ssl;
     this->output_details.ssl = ssl;
-    
-    // get input and output 
-    this->input = getInputFromString(configuration->readInput(this->section));
-    this->output = getOutputFromString(configuration->readOutput(this->section));
     
     delete configuration;
     syslog(LOG_DEBUG, "SysStats %s: All configuration loaded", this->section.c_str());

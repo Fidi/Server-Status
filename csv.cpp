@@ -163,6 +163,10 @@ bool CSV::loadConfigFile(string configFile){
     this->sequence_count = configuration->readSequenceCount(this->section);
     this->sequence_length = configuration->readElementCount(this->section);
     
+    if (configuration->readDelta(this->section)) {
+      syslog(LOG_WARNING, "CSV %s: CSV does not support delta. Use JSON instead!", this->section.c_str());
+    }
+    
     this->csv_title = configuration->readCSVTitle(this->section);
     for (int i = 0; i < this->sequence_count; i++) {
       this->sequence_title.push_back(configuration->readSequenceTitle(this->section, i));
