@@ -211,6 +211,12 @@ thread_value readValueGlobal(string section, string clientID) {
 void *serverThread(void *arg) {
   server_thread *s = (server_thread *)arg;
   
+  if (s->port == 0) {
+    // if port can not be found quit thread
+    syslog(LOG_ERR, "Server Thread: No server port was specified.");
+    pthread_exit(0);  
+  }
+  
   syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
   connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
   
@@ -220,25 +226,34 @@ void *serverThread(void *arg) {
     syslog(LOG_ERR, "Server Thread: Failed to create socket.");
     pthread_exit(0);
   }
-  if ((s->ssl) && (s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
-    if (!load_local_certificate(c, s->cert_file, s->key_file)) {
-      syslog(LOG_ERR, "Server Thread: Failed to load certificates.");
+  
+  // check SSL
+  if (s->ssl) {
+    if ((s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
+      if (!load_local_certificate(c, s->cert_file, s->key_file)) {
+        syslog(LOG_ERR, "Server Thread: Failed to load certificates.");
+        destroy_socket(c);
+        pthread_exit(0);
+      }
+    } else {
+      //started connection with ssl but no certificates submitted
+      syslog(LOG_ERR, "Server Thread: No certificates specified.");
+      destroy_socket(c);
       pthread_exit(0);
     }
   }
   
   
   while (loop) {
-    // wait for input on the socket
     string input;
-    
     try {
+      // wait for input on the socket
       if (!read_from_socket(c, input)) {
         continue;
       }
-      syslog(LOG_NOTICE, "Server Thread: Incoming data: %s", input.c_str());
+      syslog(LOG_DEBUG, "Server Thread: Incoming data: %s", input.c_str());
       
-      // string is expected to have form such as "type, id, value1, value2, ..."
+      // string is expected to have form such as "section, id, value1, value2, ..."
       vector<string> s = split(input, ',');
       storeValueGlobal(s);
       
@@ -343,12 +358,12 @@ void startDaemon(const string &configFile) {
   syslog(LOG_DEBUG, "Main Thread: SIGTERM handling added.");
   
   
+  
   // handle server/client mode
   pthread_t thread;
   pthread_attr_t thread_attr;
   if (configuration->readApplicationType() == "server") {
     // server requires an additional thread that handles external input
-   // string *port = new string(configuration->readServerPort());
     server_thread s;
     s.port = configuration->readServerPort();
     s.ssl = configuration->readSSL();
@@ -379,6 +394,7 @@ void startDaemon(const string &configFile) {
   }
   syslog(LOG_DEBUG, "Main Thread: All sys_stat objects created.");
 		
+
   
   // the loop fires once every LOOP_TIME seconds
   int loopIteration = 0;

@@ -13,7 +13,7 @@ using namespace libconfig;
 
 /*****************************************************************
 **
-**  PUBLIC STUFF
+**  PUBLIC FUNCTIONS
 **
 *****************************************************************/
 config::config(string filename) {
@@ -24,39 +24,14 @@ config::config(string filename) {
 }
 
 config::~config() {
-	
+	// free anything?
 }
 
 
 
-// load the configuration file 
-bool config::loadConfig(string filename) {
-	try
-	{
-		this->ConfigFile.readFile(filename.c_str());
-		return true;
-	}
-	catch(const FileIOException &fioex)
-	{
-		// I/O Error
-		this->ErrorCode += string("I/O error while reading file. \n");
-		return false;;
-	}
-	catch(const ParseException &pex)
-	{
-		// Parse Error at 
-		this->ErrorCode += string(pex.getFile()) + string(":") + string(to_string(pex.getLine())) + string(" - ") + string(pex.getError()) + string("\n");
-		return false;
-	}
-}
-
-
-
-/*****************************************************************
-**
-**  Application settings
-**
-*****************************************************************/
+//===================================================================================
+//=== General config settings
+//===================================================================================	
 string config::readVersion() {
 	try {
 		return this->ConfigFile.lookup("version");
@@ -64,6 +39,7 @@ string config::readVersion() {
 		return "version_error";
 	}
 }
+
 string config::readFilepath() {
 	try {
 		string path = this->ConfigFile.lookup("filepath");
@@ -78,7 +54,6 @@ string config::readFilepath() {
 	}
 }
 
-
 string config::readApplicationType() {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()["distribution"];
@@ -89,6 +64,7 @@ string config::readApplicationType() {
 		return "server";
 	}
 }
+
 int config::readServerPort() {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()["distribution"];
@@ -100,7 +76,6 @@ int config::readServerPort() {
 	}
 }
 
-
 bool config::readSSL() {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()["distribution"];
@@ -111,6 +86,7 @@ bool config::readSSL() {
 		return false;
 	}
 }
+
 string config::readCertFile(){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()["distribution"];
@@ -121,6 +97,7 @@ string config::readCertFile(){
 		return "-";
 	}
 }
+
 string config::readKeyFile(){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()["distribution"];
@@ -132,14 +109,6 @@ string config::readKeyFile(){
 	}
 }
 
-
-
-
-/*****************************************************************
-**
-**  Section settings
-**
-*****************************************************************/
 vector<string> config::readSections() {
 	vector<string> v;
 	
@@ -156,6 +125,9 @@ vector<string> config::readSections() {
 
 
 
+//===================================================================================
+//=== Section specific config settings
+//===================================================================================	
 string config::readType(string section) {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -166,6 +138,7 @@ string config::readType(string section) {
 		return "none";
 	}
 }
+
 bool config::readEnabled(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -176,6 +149,7 @@ bool config::readEnabled(string section){
 		return true;
 	}
 }		
+
 int config::readInterval(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -185,7 +159,8 @@ int config::readInterval(string section){
 	} catch (const SettingNotFoundException &nfound) {
 		return 0;
 	}
-}	
+}
+	
 int config::readElementCount(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -196,6 +171,7 @@ int config::readElementCount(string section){
 		return 30;
 	}
 }
+
 bool config::readDelta(string section){
 	bool delta = false;
 	try {
@@ -206,6 +182,8 @@ bool config::readDelta(string section){
 	}
 	return delta;
 }
+
+
 string config::readInput(string section) {
 	try{
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -216,6 +194,7 @@ string config::readInput(string section) {
 		return "NONE";
 	}
 }
+
 string config::readOutput(string section) {
 	try{
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()];
@@ -228,12 +207,6 @@ string config::readOutput(string section) {
 }
 
 
-
-/*****************************************************************
-**
-**  Sequence settings
-**
-*****************************************************************/
 int config::readSequenceCount(string section){
 	int count = 0;
 	try {
@@ -251,6 +224,7 @@ int config::readSequenceCount(string section){
 	
 	return count;
 }
+
 string config::readSequenceCommand(string section, int num){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["cmd"];
@@ -259,6 +233,7 @@ string config::readSequenceCommand(string section, int num){
 		return "echo 0";
 	}
 }
+
 string config::readSequenceTitle(string section, int num){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["title"];
@@ -267,6 +242,7 @@ string config::readSequenceTitle(string section, int num){
 		return "-";
 	}
 }
+
 string config::readSequenceColor(string section, int num){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["sequence"]["colors"];
@@ -278,12 +254,9 @@ string config::readSequenceColor(string section, int num){
 
 
 
-
-/*****************************************************************
-**
-**  JSON settings
-**
-*****************************************************************/
+//===================================================================================
+//=== JSON specific config settings
+//===================================================================================
 string config::readJSONFilename(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"];
@@ -297,6 +270,7 @@ string config::readJSONFilename(string section){
 		return section + ".json";
 	}
 }
+
 string config::readJSONTitle(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["header"];
@@ -307,6 +281,7 @@ string config::readJSONTitle(string section){
 		return "No title found";
 	}
 }
+
 string config::readJSONType(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["header"];
@@ -317,6 +292,7 @@ string config::readJSONType(string section){
 		return "line";
 	}
 }
+
 int config::readJSONRefreshInterval(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["header"];
@@ -327,6 +303,7 @@ int config::readJSONRefreshInterval(string section){
 		return 300;
 	}
 }
+
 int config::readJSONyAxisMinimum(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["header"]["yAxis"];
@@ -337,6 +314,7 @@ int config::readJSONyAxisMinimum(string section){
 		return -42;
 	}
 }
+
 int config::readJSONyAxisMaximum(string section){
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["json"]["header"]["yAxis"];
@@ -350,11 +328,9 @@ int config::readJSONyAxisMaximum(string section){
 
 
 
-/*****************************************************************
-**
-**  CSV settings
-**
-*****************************************************************/
+//===================================================================================
+//=== CSV specific config settings
+//===================================================================================
 string config::readCSVFilename(string section) {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["csv"];
@@ -368,6 +344,7 @@ string config::readCSVFilename(string section) {
 		return section + ".csv";
 	}
 }
+
 string config::readCSVTitle(string section) {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["csv"];
@@ -381,11 +358,9 @@ string config::readCSVTitle(string section) {
 
 
 
-/*****************************************************************
-**
-**  Other stuff
-**
-*****************************************************************/
+//===================================================================================
+//=== Other Stuff
+//===================================================================================
 void config::showErrorLog(){
 	printf("Syntax and I/O check: ");
 	if (this->ErrorCode != "") {
@@ -394,6 +369,7 @@ void config::showErrorLog(){
 		printf("No errors found. \n\n");
 	}
 }
+
 void config::performSecurityCheck(string filename){
 	printf("Performing security check on configuration file \"%s\": \n", filename.c_str());
 	
@@ -428,5 +404,32 @@ void config::performSecurityCheck(string filename){
 	
 	if (!riskFound) {
 		printf("No potential dangerous commands were found. \n");
+	}
+}
+
+
+
+/*****************************************************************
+**
+**  PRIVATE FUNCTIONS
+**
+*****************************************************************/
+bool config::loadConfig(string filename) {
+	try
+	{
+		this->ConfigFile.readFile(filename.c_str());
+		return true;
+	}
+	catch(const FileIOException &fioex)
+	{
+		// I/O Error
+		this->ErrorCode += string("I/O error while reading file. \n");
+		return false;;
+	}
+	catch(const ParseException &pex)
+	{
+		// Parse Error at 
+		this->ErrorCode += string(pex.getFile()) + string(":") + string(to_string(pex.getLine())) + string(" - ") + string(pex.getError()) + string("\n");
+		return false;
 	}
 }
