@@ -60,7 +60,7 @@ SystemStats::SystemStats(string section, string configFile){
   #endif
 }
 
-// destructor
+// destructor: clear up everything allocated
 SystemStats::~SystemStats() {
   delete [] this->list;
   
@@ -75,7 +75,7 @@ SystemStats::~SystemStats() {
 
 
 // collect data from the input source specified in the config file
-void SystemStats::readStatus() {
+bool SystemStats::readStatus() {
   std::vector<double> newVal;
   switch (this->input) {
   	case IN_CMD:    { // run command and use output:
@@ -93,23 +93,31 @@ void SystemStats::readStatus() {
                       }
                       break;
                     } 
-    default: break;
+    default:        { // no valid input was specified
+                      syslog(LOG_WARNING, "SysStats %s: Could not read input.", this->section.c_str());
+                      break;
+                    }
   }
   
   if (newVal.size() > 0) {
-    setValue(getReadableTime(), newVal);
+    // add value to array
+    if (!setValue(getReadableTime(), newVal)) { return false; }
+    // and save array
     saveData();
   }
+  
+  return true;
 }
 
 
 // this will load the contents from a json file into the array:
-void SystemStats::loadFromFile(){
+bool SystemStats::loadFromFile(){
+  bool result = false;
   switch (this->output) {
     case OUT_JSON:    { // submit data to json class that handles everything from here on
                         #if __JSON__
                           if (this->json_class != nullptr) {
-                            this->json_class->loadJSONfromFile(this->list, this->array_size);
+                            result = this->json_class->loadJSONfromFile(this->list, this->array_size);
                           }
                         #endif
                         break;
@@ -117,13 +125,17 @@ void SystemStats::loadFromFile(){
     case OUT_CSV:     { // submit data to json class that handles everything from here on
                         #if __CSV__
                           if (this->csv_class != nullptr) {
-                            this->csv_class->loadCSVfromFile(this->list, this->array_size);
+                            result = this->csv_class->loadCSVfromFile(this->list, this->array_size);
                           }
                         #endif
                         break;
                       }
-    default: break;
+    default:          { // some unknown type of output was specified
+                        syslog(LOG_WARNING, "SysStats %s: Could not load from file.", this->section.c_str());
+                        break;
+                      }
   }
+  return result;
 }
 
 

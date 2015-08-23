@@ -35,8 +35,8 @@ class SystemStats
     SystemStats(std::string section, std::string configFile);
     ~SystemStats();
     
-    void readStatus();
-    void loadFromFile();
+    bool readStatus();
+    bool loadFromFile();
 
   private:
     std::string configFile;

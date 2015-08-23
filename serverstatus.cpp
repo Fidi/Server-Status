@@ -409,7 +409,6 @@ void startDaemon(const string &configFile) {
     for (int i = 0; i < sys_sections.size(); i++) {
       if ((sys.interval[i] != 0) && (loopIteration % sys.interval[i] == 0)) {
         sys.stat[i]->readStatus();
-        syslog(LOG_DEBUG, "Main Thread: Triggered \"readStatus()\" in %s.", sys_sections[i].c_str());
       }
     }
     
