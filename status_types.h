@@ -43,7 +43,7 @@ enum _data_output_t {
   OUT_JSON,                // export data to JSON file
   OUT_CSV,                 // export data to CSV file
   OUT_SOCKET,              // transmit data via socket to remote destination
-  OUT_POST,                // use HTTP POST to send data to a server
+  OUT_NOTIFY,              // notifies the end-user by push (OS X), syslog or webserver (HTTP POST)
   OUT_NONE                 // do nothing with the data... but why? 
 };
 typedef enum _data_output_t data_output;

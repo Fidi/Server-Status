@@ -3,6 +3,7 @@
 
 #define __JSON__ true
 #define __CSV__ true
+#define __NOTIFY__ true
 
 #include <time.h>
 #include "status_types.h"
@@ -12,6 +13,9 @@
 #endif
 #if __CSV__
   #include "csv.h"
+#endif
+#if __NOTIFY__
+  #include "notify.h"
 #endif
 
 
@@ -62,6 +66,9 @@ class SystemStats
     #endif
     #if __CSV__
       CSV *csv_class = nullptr;
+    #endif
+    #if __NOTIFY__
+      NOTIFY *notify_class = nullptr;
     #endif
 
 

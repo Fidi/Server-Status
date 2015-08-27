@@ -9,7 +9,7 @@ endif
 FLAGS = -std=c++11 -Wall -I /usr/local/include
 
 # Input files
-INPUT = system_stats.o unix_functions.o status_types.o config.o communication.o json.o csv.o serverstatus.o
+INPUT = system_stats.o unix_functions.o status_types.o config.o communication.o json.o csv.o notify.o serverstatus.o
 
 #PATH variable
 EXEPATH = /bin/
@@ -63,6 +63,9 @@ json.o: json.cpp
 	
 csv.o: csv.cpp
 	$(CC) -c csv.cpp $(FLAGS)
+
+notify.o: notify.cpp
+	$(CC) -c notify.cpp $(FLAGS)
 	
 serverstatus.o: serverstatus.cpp
 	$(CC) -c serverstatus.cpp $(FLAGS) -pthread

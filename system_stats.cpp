@@ -58,6 +58,13 @@ SystemStats::SystemStats(string section, string configFile){
       syslog(LOG_NOTICE, "SysStats %s: CSV class created", this->section.c_str());
     }
   #endif
+  
+  #if __NOTIFY__
+    if (this->output == OUT_NOTIFY) {
+      notify_class = new NOTIFY(configFile, this->section);
+      syslog(LOG_NOTICE, "SysStats %s: NOTIFY class created", this->section.c_str());
+    }
+  #endif
 }
 
 // destructor: clear up everything allocated
@@ -69,6 +76,9 @@ SystemStats::~SystemStats() {
   #endif
   #if __CSV__
     delete this->csv_class;
+  #endif
+  #if __NOTIFY__
+    delete this->notify_class;
   #endif
 }
 
@@ -243,42 +253,52 @@ bool SystemStats::setValue(std::string time, std::vector<double> value) {
 // use the collected data in the way the config file specifies
 void SystemStats::saveData() {
   switch (this->output) {
-    case OUT_JSON:    { // submit data to json class that handles everything from here on
-                        #if __JSON__
-                          if (this->json_class != nullptr) {
-                            this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
-                          } else {
-                            syslog(LOG_ERR, "SysStats %s: failed to write to JSON file. Class not initiated.", this->section.c_str());
-                          }
-                        #endif
-                        break;
-                      }
-    case OUT_CSV:     { // submit data to json class that handles everything from here on
-                        #if __CSV__
-                          if (this->csv_class != nullptr) {
-                            this->csv_class->writeCSVtoFile(this->list, this->array_size, this->list_position);
-                          } else {
-                            syslog(LOG_ERR, "SysStats %s: failed to write to CSV file. Class not initiated.", this->section.c_str());
-                          }
-                        #endif
-                        break;
-                      }
-    case OUT_SOCKET:  { // submit data to socket connection:
-                        string msg = this->section + ", " + this->output_details.id;
-                        int prev_position = this->list_position;
-                        Dec(prev_position);
-                        for (int i = 0; i < this->list[prev_position].value.size(); i++) {
-                          msg = msg + ", " + to_string(this->list[prev_position].value[i]);
-                        }
-                        try {
-                          connection c = create_socket(CLIENT, this->output_details.port, this->output_details.ip_address, this->output_details.ssl);
-                          write_to_socket(c, msg);
-                          destroy_socket(c);
-                        } catch (int errorCode) {
-                          syslog(LOG_ERR, "SysStats %s: Connection to socket failed [#%d].", this->section.c_str(), errorCode);
-                        }                  
-                        break;
-                      }
+    case OUT_JSON:          { // submit data to json class that handles everything from here on
+                              #if __JSON__
+                                if (this->json_class != nullptr) {
+                                  this->json_class->writeJSONtoFile(this->list, this->array_size, this->list_position);
+                                } else {
+                                  syslog(LOG_ERR, "SysStats %s: failed to write to JSON file. Class not initiated.", this->section.c_str());
+                                }
+                              #endif
+                              break;
+                            }
+    case OUT_CSV:           { // submit data to json class that handles everything from here on
+                              #if __CSV__
+                                if (this->csv_class != nullptr) {
+                                  this->csv_class->writeCSVtoFile(this->list, this->array_size, this->list_position);
+                                } else {
+                                  syslog(LOG_ERR, "SysStats %s: failed to write to CSV file. Class not initiated.", this->section.c_str());
+                                }
+                              #endif
+                              break;
+                            }
+    case OUT_SOCKET:        { // submit data to socket connection:
+                              string msg = this->section + ", " + this->output_details.id;
+                              int prev_position = this->list_position;
+                              Dec(prev_position);
+                              for (int i = 0; i < this->list[prev_position].value.size(); i++) {
+                                msg = msg + ", " + to_string(this->list[prev_position].value[i]);
+                              }
+                              try {
+                                connection c = create_socket(CLIENT, this->output_details.port, this->output_details.ip_address, this->output_details.ssl);
+                                write_to_socket(c, msg);
+                                destroy_socket(c);
+                              } catch (int errorCode) {
+                                syslog(LOG_ERR, "SysStats %s: Connection to socket failed [#%d].", this->section.c_str(), errorCode);
+                              }                  
+                              break;
+                            }
+    case OUT_NOTIFY:        { // somehow (specified in details) notify the user
+                              #if __NOTIFY__
+                                if (this->notify_class != nullptr) {
+                                  this->notify_class->notify(this->list[this->list_position]);
+                                } else {
+                                  syslog(LOG_ERR, "SysStats %s: failed to notify. Class not initiated.", this->section.c_str());
+                                }
+                              #endif
+                              break;
+                            }
     default: break;
   }
 }
@@ -373,8 +393,8 @@ data_output SystemStats::getOutputFromString(string output) {
       return OUT_SOCKET;
     }
     return OUT_NONE;
-  } else  if (str[0] == "POST") {
-    return OUT_POST;
+  } else if ((str[0] == "NOTIFY") || (str[0] == "NOTIFICATION")) {
+    return OUT_NOTIFY;
   } else {
     return OUT_NONE;
   }

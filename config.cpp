@@ -359,6 +359,44 @@ string config::readCSVTitle(string section) {
 
 
 //===================================================================================
+//=== Notification specific config settings
+//===================================================================================
+string config::readNotificationType(string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"];
+		string type;
+		s.lookupValue("type", type);
+		return type;
+	} catch (const SettingNotFoundException &nfound) {
+		return "none";
+	}
+}
+
+string config::readNotificationURL(string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"];
+		string url;
+		s.lookupValue("url", url);
+		return url;
+	} catch (const SettingNotFoundException &nfound) {
+		return "localhost";
+	}
+}
+
+string config::readNotificationTitle(string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"];
+		string title;
+		s.lookupValue("title", title);
+		return title;
+	} catch (const SettingNotFoundException &nfound) {
+		return "No title found";
+	}
+}
+
+
+
+//===================================================================================
 //=== Other Stuff
 //===================================================================================
 void config::showErrorLog(){

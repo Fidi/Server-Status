@@ -97,6 +97,19 @@ class config
 		
 		
 		//===================================================================================
+		//=== Notification specific config settings
+		//===================================================================================
+		
+		// returns the notification type
+		std::string readNotificationType(std::string section);
+		// returns the http post/get url
+		std::string readNotificationURL(std::string section);
+		// returns the notification title
+		std::string readNotificationTitle(std::string section);
+		
+		
+		
+		//===================================================================================
 		//=== Other stuff
 		//===================================================================================
 		
