@@ -102,10 +102,16 @@ class config
 		
 		// returns the notification type
 		std::string readNotificationType(std::string section);
-		// returns the http post/get url
-		std::string readNotificationURL(std::string section);
 		// returns the notification title
 		std::string readNotificationTitle(std::string section);
+		// returns the notification title
+		std::string readNotificationHttpHost(std::string section);
+		// returns the notification title
+		int readNotificationHttpPort(std::string section);
+		// returns the notification title
+		std::string readNotificationHttpPage(std::string section);
+		// returns the notification title
+		std::string readNotificationHttpIdentifier(std::string section);
 		
 		
 		

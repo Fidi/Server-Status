@@ -34,6 +34,11 @@ class NOTIFY
     std::string notify_title;
     std::vector<std::string> sequence_title;
     
+    std::string http_host;
+    int http_port;
+    std::string http_page;
+    std::string http_identifier;
+    
     bool loadConfigFile(std::string configFile);
     
     notify_type getNotificationTypeFromString(std::string input);

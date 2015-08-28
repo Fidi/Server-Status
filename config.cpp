@@ -372,17 +372,6 @@ string config::readNotificationType(string section) {
 	}
 }
 
-string config::readNotificationURL(string section) {
-	try {
-		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"];
-		string url;
-		s.lookupValue("url", url);
-		return url;
-	} catch (const SettingNotFoundException &nfound) {
-		return "localhost";
-	}
-}
-
 string config::readNotificationTitle(string section) {
 	try {
 		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"];
@@ -391,6 +380,50 @@ string config::readNotificationTitle(string section) {
 		return title;
 	} catch (const SettingNotFoundException &nfound) {
 		return "No title found";
+	}
+}
+
+string config::readNotificationHttpHost(std::string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"]["http"];
+		string host;
+		s.lookupValue("host", host);
+		return host;
+	} catch (const SettingNotFoundException &nfound) {
+		return "localhost";
+	}
+}
+
+int config::readNotificationHttpPort(std::string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"]["http"];
+		int port;
+		s.lookupValue("port", port);
+		return port;
+	} catch (const SettingNotFoundException &nfound) {
+		return 80;
+	}
+}
+
+string config::readNotificationHttpPage(std::string section) {
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"]["http"];
+		string page;
+		s.lookupValue("page", page);
+		return page;
+	} catch (const SettingNotFoundException &nfound) {
+		return "/index.php";
+	}
+}
+
+string config::readNotificationHttpIdentifier(std::string section){
+	try {
+		const Setting &s = this->ConfigFile.getRoot()[section.c_str()]["notification"]["http"];
+		string identifier;
+		s.lookupValue("identifier", identifier);
+		return identifier;
+	} catch (const SettingNotFoundException &nfound) {
+		return "value";
 	}
 }
 

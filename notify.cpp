@@ -13,6 +13,7 @@
 
 #include "unix_functions.h"
 #include "config.h"
+#include "communication.h"
 
 
 using namespace std;
@@ -40,28 +41,59 @@ NOTIFY::~NOTIFY() {
 bool NOTIFY::notify(data output){
   bool result;
   switch (this->notification_type) {
-    case NOTIFY_OS_X:     {
-                            #ifdef __APPLE__
-                              string msg = "osascript -e \'display notification \"";
-                              for (int i = 0; i < output.value.size(); i++) {
-                                msg = msg + this->sequence_title[i] + " " + to_string(output.value[i]);
-                                if (i < output.value.size() - 1) { msg = msg + ", "; }
+    case NOTIFY_HTTP_POST:  { // send the data to a webserver via HTTP_POST
+                              try {
+                                connection c = create_socket(CLIENT, this->http_port, this->http_host, false);
+                                
+                                if (this->http_identifier[strlen(this->http_identifier.c_str())-1] != '=') {
+                                  this->http_identifier += "=";
+                                }
+                                
+                                string post_msg = this->http_identifier;
+                                for (int i = 0; i < output.value.size(); i++) {
+                                  post_msg += to_string(output.value[i]) + ";";
+                                }
+                                
+                                char sendline[200];
+                                sprintf(sendline, 
+                                  "POST %s HTTP/1.0\r\n"
+                                  "Host: %s\r\n"
+                                  "Content-type: application/x-www-form-urlencoded\r\n"
+                                  "Content-length: %d\r\n\r\n"
+                                  "%s\r\n", this->http_page.c_str(), this->http_host.c_str(), (unsigned int)strlen(post_msg.c_str()), post_msg.c_str());
+
+                                write_to_socket(c, sendline);
+                              
+                                destroy_socket(c);
+                                
+                                result = true;
+                              } catch (int error) {
+                                syslog(LOG_ERR, "NOTIFY %s: Could not connect to server via HTTP_POST [%d].", this->section.c_str(), error);
+                                result = false;
                               }
-                              msg = msg + "\" with title \"ServerStatus\" subtitle \"" + this->notify_title + "\"\'";
-                              syslog(LOG_WARNING, "%s", msg.c_str());
-                              getCmdOutput(&msg[0]);
-                              result = true;
-                            #else
-                              syslog(LOG_ERR, "NOTIFY %s: Push notification only works with Mac OS X 10.8 and above.", this->section.c_str());
+                            } 
+    case NOTIFY_OS_X:       {  // send an push notification on a Mac running OS X 10.8 and higher
+                              #ifdef __APPLE__
+                                string msg = "osascript -e \'display notification \"";
+                                for (int i = 0; i < output.value.size(); i++) {
+                                  msg = msg + this->sequence_title[i] + " " + to_string(output.value[i]);
+                                  if (i < output.value.size() - 1) { msg = msg + ", "; }
+                                }
+                                msg = msg + "\" with title \"ServerStatus\" subtitle \"" + this->notify_title + "\"\'";
+                                syslog(LOG_WARNING, "%s", msg.c_str());
+                                getCmdOutput(&msg[0]);
+                                result = true;
+                              #else
+                                syslog(LOG_ERR, "NOTIFY %s: Push notification only works with Mac OS X 10.8 and above.", this->section.c_str());
+                                result = false;
+                              #endif
+                              break;
+                            } 
+    default:                {
+                              syslog(LOG_WARNING, "NOTIFY %s: No valid notification type selected.", this->section.c_str());
                               result = false;
-                            #endif
-                            break;
-                          } 
-    default:              {
-                            syslog(LOG_WARNING, "NOTIFY %s: No valid notification type selected.", this->section.c_str());
-                            result = false;
-                            break;
-                          }    
+                              break;
+                            }    
   }
   return result;
 }
@@ -88,6 +120,13 @@ bool NOTIFY::loadConfigFile(string configFile){
     }
     
     this->notification_type = this->getNotificationTypeFromString(configuration->readNotificationType(this->section));
+    
+    if ((this->notification_type == NOTIFY_HTTP_POST) || (this->notification_type == NOTIFY_HTTP_GET)) {
+      this->http_host = configuration->readNotificationHttpHost(this->section);
+      this->http_port = configuration->readNotificationHttpPort(this->section);
+      this->http_page = configuration->readNotificationHttpPage(this->section);
+      this->http_identifier = configuration->readNotificationHttpIdentifier(this->section);
+    }
     
     syslog(LOG_DEBUG, "CSV %s: All configuration loaded", this->section.c_str());
     return true;
