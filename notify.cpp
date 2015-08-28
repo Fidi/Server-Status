@@ -71,7 +71,41 @@ bool NOTIFY::notify(data output){
                                 syslog(LOG_ERR, "NOTIFY %s: Could not connect to server via HTTP_POST [%d].", this->section.c_str(), error);
                                 result = false;
                               }
-                            } 
+                              break;
+                            }
+    case NOTIFY_HTTP_GET:   { // send the data to a webserver via HTTP_GET
+                              try {
+                                connection c = create_socket(CLIENT, this->http_port, this->http_host, false);
+                                
+                                if (this->http_identifier[strlen(this->http_identifier.c_str())-1] != '=') {
+                                  this->http_identifier += "=";
+                                }
+                                
+                                string get_msg = this->http_identifier;
+                                for (int i = 0; i < output.value.size(); i++) {
+                                  get_msg += to_string(output.value[i]) + ";";
+                                }
+                                
+                                string page_msg = this->http_page + "?" + get_msg;
+                                char sendline[200];
+                                sprintf(sendline, 
+                                  "GET %s HTTP/1.0\r\n"
+                                  "Host: %s\r\n"
+                                  "Content-type: application/x-www-form-urlencoded\r\n"
+                                  "Content-length: %d\r\n\r\n"
+                                  "%s\r\n", page_msg.c_str(), this->http_host.c_str(), (unsigned int)strlen(get_msg.c_str()), get_msg.c_str());
+
+                                write_to_socket(c, sendline);
+                              
+                                destroy_socket(c);
+                                
+                                result = true;
+                              } catch (int error) {
+                                syslog(LOG_ERR, "NOTIFY %s: Could not connect to server via HTTP_GET [%d].", this->section.c_str(), error);
+                                result = false;
+                              }
+                              break;
+                            }
     case NOTIFY_OS_X:       {  // send an push notification on a Mac running OS X 10.8 and higher
                               #ifdef __APPLE__
                                 string msg = "osascript -e \'display notification \"";
@@ -80,7 +114,6 @@ bool NOTIFY::notify(data output){
                                   if (i < output.value.size() - 1) { msg = msg + ", "; }
                                 }
                                 msg = msg + "\" with title \"ServerStatus\" subtitle \"" + this->notify_title + "\"\'";
-                                syslog(LOG_WARNING, "%s", msg.c_str());
                                 getCmdOutput(&msg[0]);
                                 result = true;
                               #else
