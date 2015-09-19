@@ -262,6 +262,7 @@ bool JSON::loadConfigFile(string configFile){
     
     this->graph_type = getGraphTypeFromString(configuration->readJSONType(this->section));
     
+    delete configuration;
     syslog(LOG_DEBUG, "JSON %s: All configuration loaded", this->section.c_str());
     return true;
   }

@@ -394,7 +394,7 @@ void startDaemon(const string &configFile) {
   }
   syslog(LOG_DEBUG, "Main Thread: All sys_stat objects created.");
 		
-
+  delete configuration;
   
   // the loop fires once every LOOP_TIME seconds
   int loopIteration = 0;

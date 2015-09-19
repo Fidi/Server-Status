@@ -161,6 +161,7 @@ bool NOTIFY::loadConfigFile(string configFile){
       this->http_identifier = configuration->readNotificationHttpIdentifier(this->section);
     }
     
+    delete configuration;
     syslog(LOG_DEBUG, "CSV %s: All configuration loaded", this->section.c_str());
     return true;
   }
