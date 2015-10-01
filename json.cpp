@@ -97,12 +97,7 @@ bool JSON::loadJSONfromFile(data output[], size_t array_size) {
     int arrayValue;
     for (int currentValue = 0; currentValue < this->sequence_length; currentValue++) {
       
-      if (delta) {
-        arrayValue = currentValue + 1;
-      } else {
-        arrayValue = currentValue;
-      }
-      
+      arrayValue = delta ? currentValue+1 : currentValue;
       if (arrayValue >= array_size) { continue; }
       
       // 1) get timestamp

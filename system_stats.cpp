@@ -141,7 +141,7 @@ bool SystemStats::loadFromFile(){
                         break;
                       }
     default:          { // some unknown type of output was specified
-                        syslog(LOG_WARNING, "SysStats %s: Could not load from file.", this->section.c_str());
+                        syslog(LOG_INFO, "SysStats %s: Load from file only supports JSON and CSV.", this->section.c_str());
                         break;
                       }
   }

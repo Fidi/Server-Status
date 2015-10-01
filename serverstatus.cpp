@@ -83,189 +83,98 @@ vector<thread_value> thread_Val;
 
 
 
+void startDaemon(const string &configFile);
+void stopDaemon();
+bool getDaemonStatusRunning(bool output);
+
+void *serverThread(void *arg);
+void terminate(int signum);
+void storeValueGlobal(vector<string> value);
+thread_value readValueGlobal(string section, string clientID);
+
+bool getConfigFilePath(string &output);
+string read_pid_file(const string& name);
+bool write_pid_file(const string& name);
+bool pid_running(int pid);
 
 
 
 
-// writes the path to the config file into the submitted parameter:
-bool getConfigFilePath(string &output) {
-  for (int i = 0; i < sizeof(PATH)/sizeof(PATH[0]); i++) {
-    if (file_exists(PATH[i])) {
-      output = PATH[i];
-      return true;
-    }
-  }
-  return false;
-}
-
-
-// reads a pid file without(!) checking its existence 
-string read_pid_file(const string& name) {
-  ifstream in(name);
-  string l;
-
-  if (getline(in, l)) {
-    return l;
-  } else {
-    return MAGIC_NUMBER;
-  }
-}
-
-// write pid file. returns false if an error occured
-bool write_pid_file(const string& name) {
-  ofstream of;
-  of.open(PID_FILE);
-  if (of.fail()) {
-    return false;
-  } else {
-    of << getpid();
-    of.close();
-    return true;
-  }
-}
-
-// checks if a process is running
-bool pid_running(int pid) {
-  return (0 == kill(pid, 0));
-}
-
-
-// used for SIGTERM handling
-void terminate(int signum) {
-  loop = 0;
-}
-
-
-
-void storeValueGlobal(vector<string> value) {
-  // value must at least consist out of a type, a id and one value
-  if (value.size() <= 3) { return; }
-  
-  // store value in global variable (enter mutex area)
-  pthread_mutex_lock(&thread_Mutex);
-  
-  // iterate through all currently stored values and check if this type already exists
-  int k = 0;
-  int id = -1;
-  while ((k < thread_Val.size()) && (id == -1)) {
-    if ((value[0] == thread_Val[k].section) && (value[1] == thread_Val[k].clientID)) {
-      id = k;
-    }
-    k++;
-  }
-  
-  thread_value t;
-  if (id == -1) {
-    // create new entry
-    t.section = value[0];
-    t.clientID = trim(value[1]);
-    for (int i = 2; i < value.size(); i++) {
-      t.value.push_back(atof(trim(value[i]).c_str()));
-    }
-    thread_Val.push_back(t);
-  } else {
-    // override existing entry
-    thread_Val[id].value.clear();
-    for (int i = 2; i < value.size(); i++) {
-      thread_Val[id].value.push_back(atof(trim(value[i]).c_str()));
-    }
-  }
-  
-  // leave mutex
-  pthread_mutex_unlock(&thread_Mutex);
-}
-
-
-thread_value readValueGlobal(string section, string clientID) {
-  
-  pthread_mutex_lock(&thread_Mutex);
-  
-  thread_value s;
-  s.section = section;
-  // s.value stays empty if non is found
-  
-  for (int i = 0; i < thread_Val.size(); i++){
-    if ((section == thread_Val[i].section) && (clientID == thread_Val[i].clientID)) {
-      // copy values into local variable
-      for (int j = 0; j < thread_Val[i].value.size(); j++) {
-        s.value.push_back(thread_Val[i].value[j]);
-      }
-      
-      // delete "read" entry from global variable
-      thread_Val[i].value.clear();
-    }
-  } 
-  
-  pthread_mutex_unlock(&thread_Mutex);
-  
-  // return struct
-  return s;
-}
 
 
 //===================================================================================
-// SERVER THREAD:
-// creates a thread that waits and listens on a socket for external input
-// which is then stored in a global variable (!MUTEX)
+// INPUT HANDLING:
+// Parse command line paramter and execute according functions.
 //===================================================================================
-void *serverThread(void *arg) {
-  server_thread *s = (server_thread *)arg;
+int main(int argc, char *argv[]) {
   
-  if (s->port == 0) {
-    // if port can not be found quit thread
-    syslog(LOG_ERR, "Server Thread: No server port was specified.");
-    pthread_exit(0);  
+  // Load configuration
+  string _configpath;
+  if (!getConfigFilePath(_configpath)) {
+    printf("Could not find a configuration file. \nMake sure your configuration file is \"%s\" or \"%s\". \n", PATH[0].c_str(), PATH[1].c_str());
+    exit(EXIT_FAILURE);
   }
+
   
-  syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
-  connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
+  /***************************************************************
+  *** ServerStatus differentiates between two modes:
+  ***  1) The main mode is starting without any parameters:
+  ***     It then creates a daemon that keeps running in the
+  ***     background until the OS shuts down or the process
+  ***     is killed
+  ***  2) The secound mode is starting with paramteres:
+  ***     Right now these are:
+  ***      "serverstatus --help" or "serverstatus -h"
+  ***      "start", "restart" and "stop" 
+  ***      "status"
+  ***************************************************************/ 
   
-  
-  // check if connection was created successfully 
-  if (c.socket == -1) { 
-    syslog(LOG_ERR, "Server Thread: Failed to create socket.");
-    pthread_exit(0);
-  }
-  
-  // check SSL
-  if (s->ssl) {
-    if ((s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
-      if (!load_local_certificate(c, s->cert_file, s->key_file)) {
-        syslog(LOG_ERR, "Server Thread: Failed to load certificates.");
-        destroy_socket(c);
-        pthread_exit(0);
-      }
-    } else {
-      //started connection with ssl but no certificates submitted
-      syslog(LOG_ERR, "Server Thread: No certificates specified.");
-      destroy_socket(c);
-      pthread_exit(0);
+  if ((argc == 0) || ((argc > 0) && (strcmp(argv[1],"start") == 0))) {
+    // MODE 1: run the daemon
+    startDaemon(_configpath);
+
+  } else if (argc > 0) {
+    // MODE 2: parse the options: 
+
+    if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
+      // Show help:
+      system("man serverstatus");
+      exit(EXIT_SUCCESS);
+    }
+
+    else if (strcmp(argv[1], "stop") == 0) {
+      // stop other running instances:
+      stopDaemon();
+      exit(EXIT_SUCCESS);
+    }
+
+
+    else if (strcmp(argv[1], "restart") == 0) {
+      // stop and start serverstatus again:
+      stopDaemon();
+      startDaemon(_configpath);
+    }
+    
+    else if (strcmp(argv[1], "status") == 0) {
+      // return status
+      getDaemonStatusRunning(true);
+    }
+    
+    else if ((strcmp(argv[1], "--config-check") == 0) || (strcmp(argv[1], "-c") == 0)) {
+      // Check configuration file
+      config *configuration = new config(_configpath);
+      configuration->showErrorLog();
+      configuration->performSecurityCheck(_configpath);
+    }
+    
+    else {
+      printf("command line parameter not recognised. \nUse serverstatus --help to see all possible commands.\n");
     }
   }
-  
-  
-  while (loop) {
-    string input;
-    try {
-      // wait for input on the socket
-      if (!read_from_socket(c, input)) {
-        continue;
-      }
-      syslog(LOG_DEBUG, "Server Thread: Incoming data: %s", input.c_str());
-      
-      // string is expected to have form such as "section, id, value1, value2, ..."
-      vector<string> s = split(input, ',');
-      storeValueGlobal(s);
-      
-    } catch (int error) {
-      syslog(LOG_ERR, "Server Thread: An error [%d] occurred.", error);
-    }
-  }
-  
-  destroy_socket(c);
-  
-  pthread_exit(0);
 }
+
+
+
 
 
 //===================================================================================
@@ -495,73 +404,181 @@ bool getDaemonStatusRunning(bool output) {
 
 
 
+
+
 //===================================================================================
-// INPUT HANDLING:
-// Parse command line paramter and execute according functions.
+// SERVER THREAD:
+// creates a thread that waits and listens on a socket for external input
+// which is then stored in a global variable (!MUTEX)
 //===================================================================================
-int main(int argc, char *argv[]) {
+void *serverThread(void *arg) {
+  server_thread *s = (server_thread *)arg;
   
-  // Load configuration
-  string _configpath;
-  if (!getConfigFilePath(_configpath)) {
-    printf("Could not find a configuration file. \nMake sure your configuration file is \"%s\" or \"%s\". \n", PATH[0].c_str(), PATH[1].c_str());
-    exit(EXIT_FAILURE);
+  if (s->port == 0) {
+    // if port can not be found quit thread
+    syslog(LOG_ERR, "Server Thread: No server port was specified.");
+    pthread_exit(0);  
   }
-
   
-  /***************************************************************
-  *** ServerStatus differentiates between two modes:
-  ***  1) The main mode is starting without any parameters:
-  ***     It then creates a daemon that keeps running in the
-  ***     background until the OS shuts down or the process
-  ***     is killed
-  ***  2) The secound mode is starting with paramteres:
-  ***     Right now these are:
-  ***      "serverstatus --help" or "serverstatus -h"
-  ***      "start", "restart" and "stop" 
-  ***      "status"
-  ***************************************************************/ 
+  syslog(LOG_NOTICE, "Server thread started; Listening at port %d", s->port);
+  connection c = create_socket(SERVER, s->port, "127.0.0.1", s->ssl);
   
-  if ((argc == 0) || ((argc > 0) && (strcmp(argv[1],"start") == 0))) {
-    // MODE 1: run the daemon
-    startDaemon(_configpath);
-
-  } else if (argc > 0) {
-    // MODE 2: parse the options: 
-
-    if ((strcmp(argv[1], "--help") == 0) || (strcmp(argv[1], "-h") == 0)) {
-      // Show help:
-      system("man serverstatus");
-      exit(EXIT_SUCCESS);
-    }
-
-    else if (strcmp(argv[1], "stop") == 0) {
-      // stop other running instances:
-      stopDaemon();
-      exit(EXIT_SUCCESS);
-    }
-
-
-    else if (strcmp(argv[1], "restart") == 0) {
-      // stop and start serverstatus again:
-      stopDaemon();
-      startDaemon(_configpath);
-    }
-    
-    else if (strcmp(argv[1], "status") == 0) {
-      // return status
-      getDaemonStatusRunning(true);
-    }
-    
-    else if ((strcmp(argv[1], "--config-check") == 0) || (strcmp(argv[1], "-c") == 0)) {
-      // Check configuration file
-      config *configuration = new config(_configpath);
-      configuration->showErrorLog();
-      configuration->performSecurityCheck(_configpath);
-    }
-    
-    else {
-      printf("command line parameter not recognised. \nUse serverstatus --help to see all possible commands.\n");
+  
+  // check if connection was created successfully 
+  if (c.socket == -1) { 
+    syslog(LOG_ERR, "Server Thread: Failed to create socket.");
+    pthread_exit(0);
+  }
+  
+  // check SSL
+  if (s->ssl) {
+    if ((s->cert_file[0] != '-') && (s->key_file[0] != '-')) {
+      if (!load_local_certificate(c, s->cert_file, s->key_file)) {
+        syslog(LOG_ERR, "Server Thread: Failed to load certificates.");
+        destroy_socket(c);
+        pthread_exit(0);
+      }
+    } else {
+      //started connection with ssl but no certificates submitted
+      syslog(LOG_ERR, "Server Thread: No certificates specified.");
+      destroy_socket(c);
+      pthread_exit(0);
     }
   }
+  
+  
+  while (loop) {
+    string input;
+    try {
+      // wait for input on the socket
+      if (!read_from_socket(c, input)) {
+        continue;
+      }
+      syslog(LOG_DEBUG, "Server Thread: Incoming data: %s", input.c_str());
+      
+      // string is expected to have form such as "section, id, value1, value2, ..."
+      vector<string> s = split(input, ',');
+      storeValueGlobal(s);
+      
+    } catch (int error) {
+      syslog(LOG_ERR, "Server Thread: An error [%d] occurred.", error);
+    }
+  }
+  
+  destroy_socket(c);
+  
+  pthread_exit(0);
+}
+
+
+
+// used for SIGTERM handling
+void terminate(int signum) {
+  loop = 0;
+}
+
+
+
+void storeValueGlobal(vector<string> value) {
+  // value must at least consist out of a type, a id and one value
+  if (value.size() <= 3) { return; }
+  
+  // store value in global variable (enter mutex area)
+  pthread_mutex_lock(&thread_Mutex);
+  
+  // iterate through all currently stored values and check if this type already exists
+  int k = 0;
+  int id = -1;
+  while ((k < thread_Val.size()) && (id == -1)) {
+    if ((value[0] == thread_Val[k].section) && (value[1] == thread_Val[k].clientID)) {
+      id = k;
+    }
+    k++;
+  }
+  
+  thread_value t;
+  if (id == -1) {
+    // create new entry
+    t.section = value[0];
+    t.clientID = trim(value[1]);
+    for (int i = 2; i < value.size(); i++) {
+      t.value.push_back(atof(trim(value[i]).c_str()));
+    }
+    thread_Val.push_back(t);
+  } else {
+    // override existing entry
+    thread_Val[id].value.clear();
+    for (int i = 2; i < value.size(); i++) {
+      thread_Val[id].value.push_back(atof(trim(value[i]).c_str()));
+    }
+  }
+  
+  // leave mutex
+  pthread_mutex_unlock(&thread_Mutex);
+}
+
+
+thread_value readValueGlobal(string section, string clientID) {
+  
+  pthread_mutex_lock(&thread_Mutex);
+  
+  thread_value s;
+  s.section = section;
+  // s.value stays empty if non is found
+  
+  for (int i = 0; i < thread_Val.size(); i++){
+    if ((section == thread_Val[i].section) && (clientID == thread_Val[i].clientID)) {
+      // copy values into local variable
+      for (int j = 0; j < thread_Val[i].value.size(); j++) {
+        s.value.push_back(thread_Val[i].value[j]);
+      }
+      
+      // delete "read" entry from global variable
+      thread_Val[i].value.clear();
+    }
+  } 
+  
+  pthread_mutex_unlock(&thread_Mutex);
+  
+  // return struct
+  return s;
+}
+
+
+
+// writes the path to the config file into the submitted parameter:
+bool getConfigFilePath(string &output) {
+  for (int i = 0; i < sizeof(PATH)/sizeof(PATH[0]); i++) {
+    if (file_exists(PATH[i])) {
+      output = PATH[i];
+      return true;
+    }
+  }
+  return false;
+}
+
+
+// reads a pid file without(!) checking its existence 
+string read_pid_file(const string& name) {
+  ifstream in(name);
+  string l;
+  return (getline(in, l)) ? l : MAGIC_NUMBER;
+}
+
+// write pid file. returns false if an error occured
+bool write_pid_file(const string& name) {
+  ofstream of;
+  of.open(PID_FILE);
+  if (of.fail()) {
+    return false;
+  } else {
+    of << getpid();
+    of.close();
+    return true;
+  }
+}
+
+// checks if a process is running
+bool pid_running(int pid) {
+  return (0 == kill(pid, 0));
 }
