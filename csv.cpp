@@ -173,6 +173,7 @@ bool CSV::loadConfigFile(string configFile){
       this->sequence_color.push_back(configuration->readSequenceColor(this->section, i));
     }
     
+    delete configuration;
     syslog(LOG_DEBUG, "CSV %s: All configuration loaded", this->section.c_str());
     return true;
   }
