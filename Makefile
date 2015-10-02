@@ -19,6 +19,11 @@ ifeq ("$(shell uname -s)", "FreeBSD")
     PATH = /usr/local/etc/rc.d/
 else ifeq ("$(shell uname -s)", "Darwin")
 	PATH = /usr/local/bin/
+	
+	# OpenSSL is installed via brew
+	ifeq ("$(shell which openssl)", "/opt/local/bin/openssl")
+		FLAGS +=  -I /usr/local/opt/openssl/include
+	endif 
 else
 	PATH = /etc/init.d/
 endif
